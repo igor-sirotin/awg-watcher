@@ -1,0 +1,8 @@
+bin/
+dist/
+/amnezia-config-watch
+*.ipk
+config.json
+state.json
+*.log
+.DS_Store

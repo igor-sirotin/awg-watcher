@@ -1,0 +1,219 @@
+package watch
+
+import (
+	"bytes"
+	"context"
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/rand"
+	"crypto/rsa"
+	"crypto/x509"
+	"encoding/base64"
+	"encoding/json"
+	"encoding/pem"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"os"
+	"runtime"
+	"strings"
+	"time"
+)
+
+type AccountClient struct {
+	Config      *Config
+	FixturePath string
+	HTTPClient  *http.Client
+}
+
+func (c AccountClient) FetchAccountInfo(ctx context.Context) (*AccountInfo, error) {
+	if c.FixturePath != "" {
+		b, err := os.ReadFile(c.FixturePath)
+		if err != nil {
+			return nil, err
+		}
+		return ParseAccountInfo(b)
+	}
+	if c.Config == nil {
+		return nil, fmt.Errorf("missing config")
+	}
+	decoded, err := DecodeVPNKey(c.Config.VPNKey)
+	if err != nil {
+		return nil, err
+	}
+	auth, err := ExtractPremiumAuth(decoded)
+	if err != nil {
+		return nil, err
+	}
+	body, key, iv, err := buildGatewayRequest(c.Config, auth)
+	if err != nil {
+		return nil, err
+	}
+	endpoint, err := joinEndpoint(c.Config.Amnezia.GatewayEndpoint, "v1/account_info")
+	if err != nil {
+		return nil, err
+	}
+	httpClient := c.HTTPClient
+	if httpClient == nil {
+		httpClient = &http.Client{Timeout: 30 * time.Second}
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	respBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		return nil, fmt.Errorf("gateway returned HTTP %d", resp.StatusCode)
+	}
+	plain, err := aesCBCDecrypt(respBody, key, iv[:aes.BlockSize])
+	if err != nil {
+		return nil, fmt.Errorf("decrypt gateway response: %w", err)
+	}
+	return ParseAccountInfo(plain)
+}
+
+func buildGatewayRequest(cfg *Config, auth *PremiumAuth) ([]byte, []byte, []byte, error) {
+	pub, err := gatewayPublicKey(cfg)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	key := make([]byte, 32)
+	iv := make([]byte, 32)
+	salt := make([]byte, 8)
+	if _, err := rand.Read(key); err != nil {
+		return nil, nil, nil, err
+	}
+	if _, err := rand.Read(iv); err != nil {
+		return nil, nil, nil, err
+	}
+	if _, err := rand.Read(salt); err != nil {
+		return nil, nil, nil, err
+	}
+	keyPayload, err := json.Marshal(map[string]string{
+		"aes_key":  base64.StdEncoding.EncodeToString(key),
+		"aes_iv":   base64.StdEncoding.EncodeToString(iv),
+		"aes_salt": base64.StdEncoding.EncodeToString(salt),
+	})
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	encryptedKey, err := rsa.EncryptPKCS1v15(rand.Reader, pub, keyPayload)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	apiPayload, err := json.Marshal(map[string]any{
+		"os_version":        runtime.GOOS,
+		"app_version":       "amnezia-config-watch",
+		"app_language":      "en",
+		"installation_uuid": "amnezia-config-watch",
+		"user_country_code": auth.UserCountryCode,
+		"service_type":      auth.ServiceType,
+		"service_protocol":  auth.ServiceProtocol,
+		"auth_data":         auth.AuthData,
+		"cli_version":       "amnezia-config-watch",
+	})
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	encryptedAPI, err := aesCBCEncrypt(apiPayload, key, iv[:aes.BlockSize])
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	requestBody, err := json.Marshal(map[string]string{
+		"key_payload": base64.StdEncoding.EncodeToString(encryptedKey),
+		"api_payload": base64.StdEncoding.EncodeToString(encryptedAPI),
+	})
+	return requestBody, key, iv, err
+}
+
+func gatewayPublicKey(cfg *Config) (*rsa.PublicKey, error) {
+	key := strings.TrimSpace(os.Getenv("AMNEZIA_GATEWAY_PUBLIC_KEY"))
+	if key == "" && cfg != nil {
+		key = strings.TrimSpace(cfg.Amnezia.GatewayPublicKey)
+	}
+	if key == "" {
+		return nil, fmt.Errorf("gateway public key is not configured")
+	}
+	block, _ := pem.Decode([]byte(key))
+	if block == nil {
+		return nil, fmt.Errorf("gateway public key is not PEM")
+	}
+	parsed, err := x509.ParsePKIXPublicKey(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+	pub, ok := parsed.(*rsa.PublicKey)
+	if !ok {
+		return nil, fmt.Errorf("gateway public key is not RSA")
+	}
+	return pub, nil
+}
+
+func aesCBCEncrypt(plain, key, iv []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	plain = pkcs7Pad(plain, block.BlockSize())
+	out := make([]byte, len(plain))
+	cipher.NewCBCEncrypter(block, iv).CryptBlocks(out, plain)
+	return out, nil
+}
+
+func aesCBCDecrypt(ciphertext, key, iv []byte) ([]byte, error) {
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
+	}
+	if len(ciphertext) == 0 || len(ciphertext)%block.BlockSize() != 0 {
+		return nil, fmt.Errorf("invalid CBC ciphertext length")
+	}
+	out := make([]byte, len(ciphertext))
+	cipher.NewCBCDecrypter(block, iv).CryptBlocks(out, ciphertext)
+	return pkcs7Unpad(out, block.BlockSize())
+}
+
+func pkcs7Pad(in []byte, blockSize int) []byte {
+	n := blockSize - (len(in) % blockSize)
+	out := make([]byte, len(in)+n)
+	copy(out, in)
+	for i := len(in); i < len(out); i++ {
+		out[i] = byte(n)
+	}
+	return out
+}
+
+func pkcs7Unpad(in []byte, blockSize int) ([]byte, error) {
+	if len(in) == 0 || len(in)%blockSize != 0 {
+		return nil, fmt.Errorf("invalid PKCS padding length")
+	}
+	n := int(in[len(in)-1])
+	if n == 0 || n > blockSize || n > len(in) {
+		return nil, fmt.Errorf("invalid PKCS padding")
+	}
+	for _, b := range in[len(in)-n:] {
+		if int(b) != n {
+			return nil, fmt.Errorf("invalid PKCS padding")
+		}
+	}
+	return in[:len(in)-n], nil
+}
+
+func joinEndpoint(base, path string) (string, error) {
+	u, err := url.Parse(base)
+	if err != nil {
+		return "", err
+	}
+	u.Path = strings.TrimRight(u.Path, "/") + "/" + strings.TrimLeft(path, "/")
+	return u.String(), nil
+}

@@ -1,0 +1,119 @@
+:root {
+  color-scheme: light dark;
+  --bg: #f6f7f9;
+  --fg: #17202a;
+  --muted: #667085;
+  --panel: #ffffff;
+  --line: #d7dce2;
+  --accent: #0b6bcb;
+  --ok: #137333;
+  --warn: #b45f06;
+  --bad: #b42318;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #111418;
+    --fg: #f0f3f6;
+    --muted: #a2acb8;
+    --panel: #1b2027;
+    --line: #303844;
+    --accent: #64a7ff;
+  }
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font: 14px/1.45 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+header, main {
+  width: min(1100px, calc(100% - 32px));
+  margin: 0 auto;
+}
+header {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 24px 0 12px;
+}
+h1 { margin: 0; font-size: 28px; }
+h2 { margin: 0 0 14px; font-size: 18px; }
+.summary { color: var(--muted); text-align: right; }
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+  margin: 14px 0;
+}
+.panel-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 10px;
+}
+.tile {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 12px;
+  min-height: 106px;
+}
+.tile b { display: block; margin-bottom: 6px; }
+.muted { color: var(--muted); }
+.ok { color: var(--ok); }
+.changed, .missing, .api_error { color: var(--bad); }
+.baseline, .unknown { color: var(--warn); }
+form { display: grid; gap: 12px; }
+label { display: grid; gap: 5px; font-weight: 600; }
+input, textarea {
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: transparent;
+  color: var(--fg);
+  padding: 9px 10px;
+  font: inherit;
+}
+textarea { resize: vertical; }
+.row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+button, a#diagnostics {
+  appearance: none;
+  border: 1px solid var(--accent);
+  border-radius: 6px;
+  background: var(--accent);
+  color: white;
+  padding: 9px 12px;
+  font-weight: 700;
+  text-decoration: none;
+  cursor: pointer;
+}
+pre {
+  min-height: 120px;
+  max-height: 420px;
+  overflow: auto;
+  white-space: pre-wrap;
+  margin: 0;
+}
+@media (max-width: 720px) {
+  header { align-items: start; flex-direction: column; }
+  .row { grid-template-columns: 1fr; }
+}

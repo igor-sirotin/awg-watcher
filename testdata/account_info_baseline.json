@@ -1,0 +1,30 @@
+{
+  "available_countries": [
+    {"code": "EE", "name": "Estonia"},
+    {"code": "NL", "name": "Netherlands"}
+  ],
+  "issued_configs": [
+    {
+      "source_type": "country_config",
+      "server_country_code": "EE",
+      "server_country_name": "Estonia",
+      "installation_uuid": "fixture-ee",
+      "worker_last_updated": "2026-05-01T12:00:00Z",
+      "last_downloaded": "2026-05-02T12:00:00Z",
+      "os_version": "fixture"
+    },
+    {
+      "source_type": "country_config",
+      "server_country_code": "NL",
+      "server_country_name": "Netherlands",
+      "installation_uuid": "fixture-nl",
+      "worker_last_updated": "2026-05-01T10:00:00Z",
+      "last_downloaded": "2026-05-02T10:00:00Z",
+      "os_version": "fixture"
+    }
+  ],
+  "active_device_count": 1,
+  "max_device_count": 5,
+  "subscription_end_date": "2099-01-01",
+  "subscription_description": "Fixture Premium"
+}

@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Amnezia Config Watcher</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <header>
+    <h1>Amnezia Config Watcher</h1>
+    <div id="summary" class="summary">Loading</div>
+  </header>
+
+  <main>
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Status</h2>
+        <button id="checkNow" type="button">Check now</button>
+      </div>
+      <div id="statusGrid" class="grid"></div>
+    </section>
+
+    <section class="panel">
+      <h2>Settings</h2>
+      <form id="settingsForm">
+        <label>Admin password
+          <input name="web_password" type="password" autocomplete="new-password" placeholder="Set or leave unchanged">
+        </label>
+        <label>vpn:// key
+          <textarea name="vpn_key" rows="4" spellcheck="false" placeholder="Paste key or leave unchanged"></textarea>
+        </label>
+        <div class="row">
+          <label>Countries
+            <input name="countries" placeholder="EE, NL">
+          </label>
+          <label>Poll interval, hours
+            <input name="poll_interval_hours" type="number" min="1" step="1">
+          </label>
+        </div>
+        <div class="row">
+          <label>Telegram bot token
+            <input name="bot_token" type="password" autocomplete="off" placeholder="Leave unchanged">
+          </label>
+          <label>Telegram chat ID
+            <input name="chat_id" placeholder="Leave unchanged">
+          </label>
+        </div>
+        <label>Gateway endpoint
+          <input name="gateway_endpoint">
+        </label>
+        <label>Gateway public key
+          <textarea name="gateway_public_key" rows="4" spellcheck="false" placeholder="PEM; leave unchanged"></textarea>
+        </label>
+        <div class="actions">
+          <button type="submit">Save settings</button>
+          <button id="decodeKey" type="button">Decode key</button>
+          <button id="telegramTest" type="button">Telegram test</button>
+          <a href="/api/diagnostics" id="diagnostics">Diagnostics</a>
+        </div>
+      </form>
+    </section>
+
+    <section class="panel">
+      <h2>Output</h2>
+      <pre id="output"></pre>
+    </section>
+  </main>
+
+  <script src="/app.js"></script>
+</body>
+</html>
