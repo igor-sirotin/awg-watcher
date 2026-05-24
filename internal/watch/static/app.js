@@ -10,11 +10,16 @@ const keysList = document.querySelector("#keysList");
 const keyForm = document.querySelector("#keyForm");
 const editorTitle = document.querySelector("#editorTitle");
 const countryPicker = document.querySelector("#countryPicker");
+const keyFormMessage = document.querySelector("#keyFormMessage");
 const deleteKeyButton = document.querySelector("#deleteKey");
 const output = document.querySelector("#output");
 const settingsDialog = document.querySelector("#settingsDialog");
 const settingsForm = document.querySelector("#settingsForm");
 const setupBox = document.querySelector("#setupBox");
+const keyDialog = document.querySelector("#keyDialog");
+const keyDetailsDialog = document.querySelector("#keyDetailsDialog");
+const keyDetails = document.querySelector("#keyDetails");
+const detailsTitle = document.querySelector("#detailsTitle");
 
 async function api(path, options = {}) {
   const res = await fetch(path, {
@@ -43,14 +48,13 @@ async function refresh({quiet = false} = {}) {
 function render() {
   const st = model.state || {};
   const cfg = model.config || {};
-  const keys = cfg.keys || [];
-  summary.textContent = `${st.status || "unknown"}${st.last_check ? " · " + new Date(st.last_check).toLocaleString() : ""}${model.fixture ? " · fixture mode" : ""}`;
+  summary.textContent = `${titleStatus(st.status || "unknown")} · last ${formatTime(st.last_check)} · next ${formatTime(model.next_check)}${model.fixture ? " · fixture" : ""}`;
   renderFatal(st);
   renderSetup();
-  renderKeys(keys, st.keys || {});
+  renderKeys(cfg.keys || [], st.keys || {});
   renderSettings(cfg);
-  if (!selectedKeyID && keys.length) selectedKeyID = keys[0].id;
-  renderEditor(keys.find(k => k.id === selectedKeyID) || null);
+  if (keyDialog.open) renderKeyEditor(currentKey());
+  if (keyDetailsDialog.open) renderKeyDetails(selectedKeyID);
 }
 
 function renderFatal(st) {
@@ -78,7 +82,7 @@ function renderSetup() {
   }
   setupBox.classList.remove("hidden");
   setupBox.textContent = `Initial setup: add ${missing.join(", ")}.`;
-  if (model.setup_mode && !settingsDialog.open) settingsDialog.showModal();
+  if (model.setup_mode && !settingsDialog.open && !keyDialog.open) settingsDialog.showModal();
 }
 
 function renderKeys(keys, keyStates) {
@@ -89,37 +93,65 @@ function renderKeys(keys, keyStates) {
   }
   for (const key of keys) {
     const state = keyStates[key.id] || {};
-    const card = document.createElement("button");
-    card.type = "button";
-    card.className = `key-card ${selectedKeyID === key.id ? "selected" : ""}`;
+    const account = state.last_account || {};
+    const watched = key.countries || [];
+    const changedCount = Object.values(state.countries || {}).filter(c => c.status === "changed" || c.status === "missing").length;
+    const card = document.createElement("article");
+    card.className = "key-card";
     card.innerHTML = `
-      <div>
-        <b>${escapeHtml(key.name || "Key")}</b>
-        <span class="muted">${escapeHtml((key.countries || []).join(", ") || "No countries selected")}</span>
+      <div class="key-card-main" data-action="details" data-id="${escapeHtml(key.id)}">
+        <div class="key-title-row">
+          <div>
+            <h3>${escapeHtml(key.name || "Key")}</h3>
+            <div class="muted small">${escapeHtml(watched.map(countryLabel).join(", ") || "No countries selected")}</div>
+          </div>
+          <span class="pill ${escapeHtml(state.status || "unknown")}">${titleStatus(state.status || "unknown")}</span>
+        </div>
+        <div class="metric-row">
+          ${metric("Last check", formatTime(state.last_check))}
+          ${metric("Next check", formatTime(model.next_check))}
+          ${metric("Devices", account.max_device_count ? `${account.active_device_count || 0}/${account.max_device_count}` : "-")}
+          ${metric("Subscription", formatDate(account.subscription_end_date))}
+          ${metric("Available", account.available_countries?.length ?? "-")}
+          ${metric("Issued", account.issued_country_configs?.length ?? "-")}
+          ${metric("Changed", changedCount)}
+        </div>
+        ${state.last_error ? `<div class="inline-error">${escapeHtml(state.last_error)}</div>` : ""}
+        ${renderCountryRows(state.countries || {})}
       </div>
-      <span class="pill ${escapeHtml(state.status || "unknown")}">${escapeHtml(state.status || "unknown")}</span>
-      ${renderCountryRows(state.countries || {})}
+      <div class="card-actions">
+        <button type="button" class="secondary" data-action="details" data-id="${escapeHtml(key.id)}">Details</button>
+        <button type="button" data-action="edit" data-id="${escapeHtml(key.id)}">Edit</button>
+      </div>
     `;
-    card.addEventListener("click", () => {
-      selectedKeyID = key.id;
-      render();
-    });
     keysList.appendChild(card);
   }
+}
+
+function metric(label, value) {
+  return `<div class="metric"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value || "-")}</strong></div>`;
 }
 
 function renderCountryRows(countries) {
   const rows = Object.values(countries).sort((a, b) => a.code.localeCompare(b.code));
   if (!rows.length) return `<div class="muted small">Run a check to create a baseline.</div>`;
   return `<div class="country-rows">${rows.map(c => `
-    <span>${escapeHtml(c.code)}</span>
-    <span class="${escapeHtml(c.status || "unknown")}">${escapeHtml(c.status || "unknown")}</span>
-    <span class="muted">${escapeHtml(c.worker_last_updated || "-")}</span>
+    <span>${countryFlag(c.code)} ${escapeHtml(c.code)}</span>
+    <span class="${escapeHtml(c.status || "unknown")}">${titleStatus(c.status || "unknown")}</span>
+    <span class="muted">worker ${formatDateTime(c.worker_last_updated)}</span>
+    <span class="muted">downloaded ${formatDateTime(c.last_downloaded)}</span>
   `).join("")}</div>`;
 }
 
-function renderEditor(key) {
+function openKeyEditor(key) {
+  selectedKeyID = key?.id || "";
+  renderKeyEditor(key || null);
+  keyDialog.showModal();
+}
+
+function renderKeyEditor(key) {
   keyForm.reset();
+  keyFormMessage.classList.add("hidden");
   deleteKeyButton.classList.toggle("hidden", !key);
   editorTitle.textContent = key ? "Edit key" : "Add key";
   keyForm.elements.id.value = key?.id || "";
@@ -134,7 +166,7 @@ function renderCountryPicker(key) {
   const selected = new Set(key?.countries || []);
   countryPicker.innerHTML = "";
   if (!available.length) {
-    countryPicker.innerHTML = `<div class="empty-note">Save the key and run a check to load available countries.</div>`;
+    countryPicker.innerHTML = `<div class="empty-note">Save the key once. The app will check it and load available countries automatically.</div>`;
     return;
   }
   for (const country of available) {
@@ -142,7 +174,7 @@ function renderCountryPicker(key) {
     label.className = "country-option";
     label.innerHTML = `
       <input type="checkbox" value="${escapeHtml(country.code)}" ${selected.has(country.code) ? "checked" : ""}>
-      <span>${escapeHtml(country.code)}</span>
+      <span>${countryFlag(country.code)} ${escapeHtml(country.code)}</span>
       <span>${escapeHtml(country.name || "")}</span>
       ${issued.has(country.code) ? `<em>in use</em>` : `<em class="muted">available</em>`}
     `;
@@ -150,10 +182,46 @@ function renderCountryPicker(key) {
   }
 }
 
+function renderKeyDetails(keyID) {
+  const key = (model.config?.keys || []).find(k => k.id === keyID);
+  const state = (model.state?.keys || {})[keyID] || {};
+  const account = state.last_account || {};
+  if (!key) return;
+  detailsTitle.textContent = key.name || "Key status";
+  const issued = account.issued_country_configs || [];
+  keyDetails.innerHTML = `
+    <div class="details-grid">
+      ${metric("Status", titleStatus(state.status || "unknown"))}
+      ${metric("Last check", formatTime(state.last_check))}
+      ${metric("Next check", formatTime(model.next_check))}
+      ${metric("Errors", state.error_count || 0)}
+      ${metric("Devices", account.max_device_count ? `${account.active_device_count || 0}/${account.max_device_count}` : "-")}
+      ${metric("Subscription ends", formatDate(account.subscription_end_date))}
+      ${metric("Available countries", account.available_countries?.length ?? "-")}
+      ${metric("Issued configs", issued.length)}
+    </div>
+    ${state.last_error ? `<div class="inline-error">${escapeHtml(state.last_error)}</div>` : ""}
+    <h3>Issued country configs</h3>
+    <div class="detail-table">
+      <span>Country</span><span>Worker updated</span><span>Last downloaded</span><span>UUID</span>
+      ${issued.map(c => `
+        <span>${countryFlag(c.code)} ${escapeHtml(c.code)} ${escapeHtml(c.name || "")}</span>
+        <span>${formatDateTime(c.worker_last_updated)}</span>
+        <span>${formatDateTime(c.last_downloaded)}</span>
+        <span class="mono">${escapeHtml(c.installation_uuid || "-")}</span>
+      `).join("")}
+    </div>
+  `;
+}
+
 function renderSettings(cfg) {
   settingsForm.poll_interval_hours.value = cfg.poll_interval_hours || 6;
   settingsForm.gateway_endpoint.value = cfg.amnezia?.gateway_endpoint || "";
   settingsForm.gateway_public_key_filepath.value = cfg.amnezia?.gateway_public_key_filepath || "";
+}
+
+function currentKey() {
+  return (model.config?.keys || []).find(k => k.id === selectedKeyID) || null;
 }
 
 function currentKeysFromUI(nextKey) {
@@ -183,6 +251,9 @@ keyForm.addEventListener("submit", async (event) => {
     selectedKeyID = data.config.keys.find(k => k.name === nextKey.name)?.id || nextKey.id || selectedKeyID;
     await api("/api/check", {method: "POST", body: "{}"}).catch(() => null);
     await refresh();
+    keyForm.elements.vpn_key.value = "";
+    keyFormMessage.textContent = "Saved. Available countries and current config status are updated.";
+    keyFormMessage.classList.remove("hidden");
   } catch (err) {
     showFatal(err.message);
   }
@@ -196,18 +267,29 @@ deleteKeyButton.addEventListener("click", async () => {
   }));
   selectedKeyID = keys[0]?.id || "";
   await saveConfig({keys});
+  keyDialog.close();
   await refresh();
 });
 
-document.querySelector("#addKey").addEventListener("click", () => {
-  selectedKeyID = "";
-  renderEditor(null);
+keysList.addEventListener("click", (event) => {
+  const target = event.target.closest("[data-action]");
+  if (!target) return;
+  const key = (model.config?.keys || []).find(k => k.id === target.dataset.id);
+  if (!key) return;
+  selectedKeyID = key.id;
+  if (target.dataset.action === "edit") openKeyEditor(key);
+  if (target.dataset.action === "details") {
+    renderKeyDetails(key.id);
+    keyDetailsDialog.showModal();
+  }
 });
+
+document.querySelector("#addKey").addEventListener("click", () => openKeyEditor(null));
 
 settingsForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
-    await saveConfig({
+    const data = await saveConfig({
       web_password: settingsForm.web_password.value,
       poll_interval_hours: Number(settingsForm.poll_interval_hours.value || 6),
       gateway_public_keys: settingsForm.gateway_public_keys.value,
@@ -224,6 +306,11 @@ settingsForm.addEventListener("submit", async (event) => {
     settingsForm.gateway_public_keys.value = "";
     settingsForm.bot_token.value = "";
     settingsDialog.close();
+    if (token && (data.setup_complete || data.password_changed)) {
+      window.history.replaceState({}, document.title, window.location.pathname);
+      window.location.replace(window.location.pathname);
+      return;
+    }
     await refresh();
   } catch (err) {
     showFatal(err.message);
@@ -239,9 +326,7 @@ async function saveConfig(patch) {
     web_password: patch.web_password || "",
     gateway_public_keys: patch.gateway_public_keys || ""
   };
-  if (Object.prototype.hasOwnProperty.call(patch, "keys")) {
-    body.keys = patch.keys;
-  }
+  if (Object.prototype.hasOwnProperty.call(patch, "keys")) body.keys = patch.keys;
   return api("/api/settings", {method: "POST", body: JSON.stringify(body)});
 }
 
@@ -266,6 +351,8 @@ document.querySelector("#telegramTest").addEventListener("click", async () => {
 
 document.querySelector("#openSettings").addEventListener("click", () => settingsDialog.showModal());
 document.querySelector("#closeSettings").addEventListener("click", () => settingsDialog.close());
+document.querySelector("#closeKeyDialog").addEventListener("click", () => keyDialog.close());
+document.querySelector("#closeDetailsDialog").addEventListener("click", () => keyDetailsDialog.close());
 document.querySelector("#diagnostics").addEventListener("click", (event) => {
   if (token) event.currentTarget.href = `/api/diagnostics?setup_token=${encodeURIComponent(token)}`;
 });
@@ -278,6 +365,35 @@ document.querySelectorAll(".tab").forEach(tab => {
     document.querySelector(`#tab-${tab.dataset.tab}`).classList.add("active");
   });
 });
+
+function titleStatus(status) {
+  return String(status || "unknown").replace(/_/g, " ");
+}
+
+function formatTime(value) {
+  if (!value || value.startsWith?.("0001-")) return "not yet";
+  return new Intl.DateTimeFormat(undefined, {month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"}).format(new Date(value));
+}
+
+function formatDate(value) {
+  if (!value) return "-";
+  return new Intl.DateTimeFormat(undefined, {year: "numeric", month: "short", day: "numeric"}).format(new Date(value));
+}
+
+function formatDateTime(value) {
+  if (!value) return "-";
+  return new Intl.DateTimeFormat(undefined, {month: "short", day: "numeric", hour: "2-digit", minute: "2-digit"}).format(new Date(value));
+}
+
+function countryLabel(code) {
+  return `${countryFlag(code)} ${code}`;
+}
+
+function countryFlag(code) {
+  const cc = String(code || "").toUpperCase();
+  if (!/^[A-Z]{2}$/.test(cc)) return "";
+  return cc.replace(/./g, ch => String.fromCodePoint(127397 + ch.charCodeAt(0)));
+}
 
 function show(value) {
   output.textContent = typeof value === "string" ? value : JSON.stringify(value, null, 2);

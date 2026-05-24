@@ -134,6 +134,7 @@ func (a *App) handleStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{
 		"config":                    RedactValue(cfg),
 		"state":                     st,
+		"next_check":                nextCheckTime(st, cfg),
 		"setup_mode":                setupMode,
 		"setup_requirements":        setupRequirements(cfg, a.paths, setupMode),
 		"gateway_public_key_status": GatewayPublicKeyFileStatus(cfg.Amnezia.GatewayPublicKeyFilePath),
@@ -163,6 +164,7 @@ func (a *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	a.mu.Lock()
 	cfg := *a.cfg
+	wasSetupComplete := isSetupComplete(cfg, a.paths, cfg.Web.PasswordHash == "")
 	if req.ListenAddr != "" {
 		cfg.ListenAddr = req.ListenAddr
 	}
@@ -210,6 +212,7 @@ func (a *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 		cfg.Web.PasswordHash = string(hash)
 		a.setupToken = ""
 	}
+	passwordChanged := req.WebPassword != ""
 	applyDefaults(&cfg)
 	if err := SaveConfig(a.paths.ConfigPath, &cfg); err != nil {
 		a.mu.Unlock()
@@ -217,8 +220,21 @@ func (a *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.cfg = &cfg
+	isNowSetupComplete := isSetupComplete(cfg, a.paths, cfg.Web.PasswordHash == "")
 	a.mu.Unlock()
-	writeJSON(w, map[string]any{"ok": true, "config": RedactValue(cfg)})
+	if !wasSetupComplete && isNowSetupComplete {
+		go func() {
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+			defer cancel()
+			_ = SendTelegram(ctx, cfg.Telegram, "Amnezia Config Watcher setup completed")
+		}()
+	}
+	writeJSON(w, map[string]any{
+		"ok":               true,
+		"config":           RedactValue(cfg),
+		"setup_complete":   isNowSetupComplete,
+		"password_changed": passwordChanged,
+	})
 }
 
 func (a *App) handleDecode(w http.ResponseWriter, r *http.Request) {
@@ -322,6 +338,19 @@ func setupRequirements(cfg Config, paths *Paths, setupMode bool) map[string]any 
 		"amnezia_keys":        len(cfg.Keys) > 0,
 		"gateway_key_path":    paths.GatewayPublicKeyPath,
 	}
+}
+
+func isSetupComplete(cfg Config, paths *Paths, setupMode bool) bool {
+	req := setupRequirements(cfg, paths, setupMode)
+	return req["admin_password"] == true && req["gateway_public_keys"] == true && req["amnezia_keys"] == true
+}
+
+func nextCheckTime(st *State, cfg Config) *time.Time {
+	if st == nil || st.LastCheck.IsZero() {
+		return nil
+	}
+	next := st.LastCheck.Add(time.Duration(cfg.PollIntervalHours) * time.Hour)
+	return &next
 }
 
 func mergeKeyConfigs(existing, incoming []KeyConfig) ([]KeyConfig, error) {

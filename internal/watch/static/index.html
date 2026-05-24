@@ -28,33 +28,13 @@
 
   <main>
     <section id="tab-keys" class="tab-panel active">
-      <div class="split">
-        <section class="panel">
-          <div class="panel-head">
-            <h2>AmneziaVPN keys</h2>
-            <button id="addKey" type="button">Add key</button>
-          </div>
-          <div id="keysList" class="key-list"></div>
-        </section>
-
-        <section class="panel">
-          <h2 id="editorTitle">Add key</h2>
-          <form id="keyForm">
-            <input name="id" type="hidden">
-            <label>Name
-              <input name="name" placeholder="Personal Premium">
-            </label>
-            <label>vpn:// key
-              <textarea name="vpn_key" rows="5" spellcheck="false" placeholder="Paste key for a new entry; leave empty when editing"></textarea>
-            </label>
-            <div id="countryPicker" class="country-picker"></div>
-            <div class="actions">
-              <button type="submit">Save key</button>
-              <button id="deleteKey" type="button" class="danger hidden">Delete</button>
-            </div>
-          </form>
-        </section>
-      </div>
+      <section class="panel">
+        <div class="panel-head">
+          <h2>AmneziaVPN keys</h2>
+          <button id="addKey" type="button">Add key</button>
+        </div>
+        <div id="keysList" class="key-list"></div>
+      </section>
     </section>
 
     <section id="tab-awg" class="tab-panel">
@@ -112,6 +92,36 @@
         <button type="submit">Save settings</button>
       </div>
     </form>
+  </dialog>
+
+  <dialog id="keyDialog">
+    <form id="keyForm" method="dialog">
+      <div class="dialog-head">
+        <h2 id="editorTitle">Add key</h2>
+        <button id="closeKeyDialog" type="button" class="icon-button" aria-label="Close">x</button>
+      </div>
+      <input name="id" type="hidden">
+      <label>Name
+        <input name="name" placeholder="Personal Premium">
+      </label>
+      <label>vpn:// key
+        <textarea name="vpn_key" rows="5" spellcheck="false" placeholder="Paste key for a new entry; leave empty when editing"></textarea>
+      </label>
+      <div id="keyFormMessage" class="setup-box hidden"></div>
+      <div id="countryPicker" class="country-picker"></div>
+      <div class="actions">
+        <button type="submit">Save key</button>
+        <button id="deleteKey" type="button" class="danger hidden">Delete</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="keyDetailsDialog">
+    <div class="dialog-head">
+      <h2 id="detailsTitle">Key status</h2>
+      <button id="closeDetailsDialog" type="button" class="icon-button" aria-label="Close">x</button>
+    </div>
+    <div id="keyDetails"></div>
   </dialog>
 
   <script src="/app.js"></script>
