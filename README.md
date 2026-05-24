@@ -6,7 +6,8 @@ Local Keenetic/Entware web app that watches Amnezia Premium country config metad
 
 Implemented:
 
-- single Go binary with embedded HTML/CSS/JS
+- single Go binary with embedded React/shadcn-style web UI
+- `frontend/` Vite React source tree with built assets embedded from `internal/watch/static`
 - `vpn://` decoder for compressed and plain exported keys
 - multiple AmneziaVPN keys with independent country watch lists
 - local config/state files with `0600` writes
@@ -32,6 +33,25 @@ The binary is written to:
 ```text
 bin/amnezia-config-watch
 ```
+
+`make build` runs the frontend build first and then compiles Go. For frontend-only
+development:
+
+```sh
+cd frontend
+npm install
+npm run dev
+```
+
+The development server serves only the UI source. Run the Go server separately for
+the API:
+
+```sh
+go run ./cmd/amnezia-config-watch serve --workdir ./local-data
+```
+
+For releases, use `make build` or `make build-linux` so the current frontend is
+embedded into the binary.
 
 ## Offline Local Run
 
