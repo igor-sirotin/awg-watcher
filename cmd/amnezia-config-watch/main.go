@@ -57,22 +57,37 @@ Commands:
 `, version)
 }
 
-func commonFlags(name string, args []string) (*flag.FlagSet, *watch.Paths, *string) {
+type commonOptions struct {
+	paths   *watch.Paths
+	workdir *string
+	envFile *string
+}
+
+func commonFlags(name string, args []string) (*flag.FlagSet, commonOptions) {
 	fs := flag.NewFlagSet(name, flag.ExitOnError)
 	paths := watch.DefaultPaths()
 	workdir := fs.String("workdir", "", "directory for config.json and state.json")
+	envFile := fs.String("env-file", ".env", "dotenv file to load before running")
 	fs.StringVar(&paths.ConfigPath, "config", paths.ConfigPath, "config JSON path")
 	fs.StringVar(&paths.StatePath, "state", paths.StatePath, "state JSON path")
-	return fs, &paths, workdir
+	return fs, commonOptions{paths: &paths, workdir: workdir, envFile: envFile}
+}
+
+func applyCommonOptions(opts commonOptions) *watch.Paths {
+	if err := watch.LoadEnvFile(*opts.envFile); err != nil {
+		fatal(err)
+	}
+	opts.paths.ApplyWorkdir(*opts.workdir)
+	return opts.paths
 }
 
 func runServe(args []string) {
-	fs, paths, workdir := commonFlags("serve", args)
+	fs, opts := commonFlags("serve", args)
 	var listenOverride, fixture string
 	fs.StringVar(&listenOverride, "listen", "", "override listen address")
 	fs.StringVar(&fixture, "fixture-account-info", "", "read account_info JSON from this file instead of Amnezia gateway")
 	fs.Parse(args)
-	paths.ApplyWorkdir(*workdir)
+	paths := applyCommonOptions(opts)
 
 	cfg, err := watch.LoadConfig(paths.ConfigPath)
 	if err != nil {
@@ -103,11 +118,11 @@ func runServe(args []string) {
 }
 
 func runCheck(args []string) {
-	fs, paths, workdir := commonFlags("check", args)
+	fs, opts := commonFlags("check", args)
 	var fixture string
 	fs.StringVar(&fixture, "fixture-account-info", "", "read account_info JSON from this file instead of Amnezia gateway")
 	fs.Parse(args)
-	paths.ApplyWorkdir(*workdir)
+	paths := applyCommonOptions(opts)
 
 	cfg, err := watch.LoadConfig(paths.ConfigPath)
 	if err != nil {
@@ -146,9 +161,9 @@ func runDecode(args []string) {
 }
 
 func runNotifyTest(args []string) {
-	fs, paths, workdir := commonFlags("notify-test", args)
+	fs, opts := commonFlags("notify-test", args)
 	fs.Parse(args)
-	paths.ApplyWorkdir(*workdir)
+	paths := applyCommonOptions(opts)
 	cfg, err := watch.LoadConfig(paths.ConfigPath)
 	if err != nil {
 		fatal(err)
@@ -162,9 +177,9 @@ func runNotifyTest(args []string) {
 }
 
 func runStatus(args []string) {
-	fs, paths, workdir := commonFlags("status", args)
+	fs, opts := commonFlags("status", args)
 	fs.Parse(args)
-	paths.ApplyWorkdir(*workdir)
+	paths := applyCommonOptions(opts)
 	cfg, err := watch.LoadConfig(paths.ConfigPath)
 	if err != nil {
 		fatal(err)

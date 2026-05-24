@@ -5,5 +5,7 @@ dist/
 config.json
 state.json
 *.log
+.env
+gateway_public_key.pub
 .DS_Store
 .idea/

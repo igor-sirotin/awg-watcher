@@ -17,7 +17,7 @@ Implemented:
 - redacted diagnostics export
 - Entware init-script scaffold
 
-The production Amnezia gateway public key is not committed. To run live gateway calls, provide it with `AMNEZIA_GATEWAY_PUBLIC_KEY` or `amnezia.gateway_public_key` in the config.
+The production Amnezia gateway public key is not committed. To run live gateway calls, provide it with `AMNEZIA_GATEWAY_PUBLIC_KEY`, a local `.env` file, or `amnezia.gateway_public_key` in the config.
 
 ## Build And Test
 
@@ -83,6 +83,36 @@ Useful local flags:
 way to run locally without writing to `/opt`.
 
 `decode` prints redacted JSON by default. Use `--show-secrets` only on a trusted machine.
+
+## Local `.env`
+
+The app loads `.env` by default for `serve`, `check`, `notify-test`, and `status`.
+Real `.env` files are ignored by git.
+
+Create one from the example:
+
+```sh
+cp .env.example .env
+chmod 600 .env
+```
+
+Store the gateway public key as a single quoted value with `\n` escapes:
+
+```env
+AMNEZIA_GATEWAY_PUBLIC_KEY="-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
+```
+
+Then run normally:
+
+```sh
+go run ./cmd/amnezia-config-watch serve --workdir ./local-data
+```
+
+To use a different dotenv file:
+
+```sh
+go run ./cmd/amnezia-config-watch check --workdir ./local-data --env-file ./private/amnezia.env
+```
 
 ## Keenetic/Entware Usage
 
