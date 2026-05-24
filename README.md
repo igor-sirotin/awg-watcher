@@ -8,6 +8,7 @@ Implemented:
 
 - single Go binary with embedded HTML/CSS/JS
 - `vpn://` decoder for compressed and plain exported keys
+- multiple AmneziaVPN keys with independent country watch lists
 - local config/state files with `0600` writes
 - password-protected web UI after first setup
 - fixture mode for offline tests and local UI simulation
@@ -49,6 +50,15 @@ http://127.0.0.1:8097/?setup_token=...
 ```
 
 Open that URL, set an admin password, configure countries such as `EE, NL`, save, then click `Check now`.
+
+The UI is tab-based:
+
+- `Keys`: add AmneziaVPN keys, run checks, and choose countries from each key's account response.
+- `AWG Manager`: placeholder only; no router tunnel changes are made in V1.
+- `Tools`: Telegram test and redacted diagnostics download.
+- `Settings`: popup for password, gateway public keys, gateway endpoint, poll interval, and Telegram.
+
+For a new key, save the key first. The UI runs a check, loads available countries, then lets you select which countries to watch.
 
 To simulate a change, restart with:
 

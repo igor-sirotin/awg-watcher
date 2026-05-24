@@ -5,8 +5,10 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 func LoadConfig(path string) (*Config, error) {
@@ -50,7 +52,7 @@ func SaveConfig(path string, cfg *Config) error {
 }
 
 func LoadState(path string) (*State, error) {
-	st := &State{Status: "unknown", Countries: map[string]CountryState{}, LastNotified: map[string]string{}}
+	st := &State{Status: "unknown", Countries: map[string]CountryState{}, Keys: map[string]KeyState{}, LastNotified: map[string]string{}}
 	b, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return st, nil
@@ -63,6 +65,9 @@ func LoadState(path string) (*State, error) {
 	}
 	if st.Countries == nil {
 		st.Countries = map[string]CountryState{}
+	}
+	if st.Keys == nil {
+		st.Keys = map[string]KeyState{}
 	}
 	if st.LastNotified == nil {
 		st.LastNotified = map[string]string{}
@@ -92,6 +97,14 @@ func GenerateSetupToken() (string, error) {
 	return base64.RawURLEncoding.EncodeToString(b), nil
 }
 
+func GenerateKeyID() (string, error) {
+	b := make([]byte, 9)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return "key-" + base64.RawURLEncoding.EncodeToString(b), nil
+}
+
 func applyDefaults(cfg *Config) {
 	if cfg.ListenAddr == "" {
 		cfg.ListenAddr = DefaultListenAddr
@@ -105,4 +118,28 @@ func applyDefaults(cfg *Config) {
 	if cfg.Telegram.Endpoint == "" {
 		cfg.Telegram.Endpoint = DefaultTelegramEndpoint
 	}
+	migrateSingleKeyConfig(cfg)
+	for i := range cfg.Keys {
+		cfg.Keys[i].ID = strings.TrimSpace(cfg.Keys[i].ID)
+		if cfg.Keys[i].ID == "" {
+			cfg.Keys[i].ID = fmt.Sprintf("key-%d", i+1)
+		}
+		cfg.Keys[i].Name = strings.TrimSpace(cfg.Keys[i].Name)
+		if cfg.Keys[i].Name == "" {
+			cfg.Keys[i].Name = fmt.Sprintf("Key %d", i+1)
+		}
+		cfg.Keys[i].Countries = normalizeCountries(cfg.Keys[i].Countries)
+	}
+}
+
+func migrateSingleKeyConfig(cfg *Config) {
+	if strings.TrimSpace(cfg.VPNKey) == "" || len(cfg.Keys) > 0 {
+		return
+	}
+	cfg.Keys = []KeyConfig{{
+		ID:        "default",
+		Name:      "Default key",
+		VPNKey:    cfg.VPNKey,
+		Countries: cfg.Countries,
+	}}
 }

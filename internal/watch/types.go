@@ -44,10 +44,18 @@ type Config struct {
 	ListenAddr        string         `json:"listen_addr"`
 	VPNKey            string         `json:"vpn_key"`
 	Countries         []string       `json:"countries"`
+	Keys              []KeyConfig    `json:"keys"`
 	PollIntervalHours int            `json:"poll_interval_hours"`
 	Telegram          TelegramConfig `json:"telegram"`
 	Amnezia           AmneziaConfig  `json:"amnezia"`
 	Web               WebConfig      `json:"web"`
+}
+
+type KeyConfig struct {
+	ID        string   `json:"id"`
+	Name      string   `json:"name"`
+	VPNKey    string   `json:"vpn_key"`
+	Countries []string `json:"countries"`
 }
 
 type TelegramConfig struct {
@@ -72,8 +80,20 @@ type State struct {
 	LastError    string                  `json:"last_error,omitempty"`
 	ErrorCount   int                     `json:"error_count,omitempty"`
 	Countries    map[string]CountryState `json:"countries"`
+	Keys         map[string]KeyState     `json:"keys,omitempty"`
 	LastAccount  *AccountSummary         `json:"last_account,omitempty"`
 	LastNotified map[string]string       `json:"last_notified,omitempty"`
+}
+
+type KeyState struct {
+	ID          string                  `json:"id"`
+	Name        string                  `json:"name"`
+	LastCheck   time.Time               `json:"last_check,omitempty"`
+	Status      string                  `json:"status"`
+	LastError   string                  `json:"last_error,omitempty"`
+	ErrorCount  int                     `json:"error_count,omitempty"`
+	Countries   map[string]CountryState `json:"countries"`
+	LastAccount *AccountSummary         `json:"last_account,omitempty"`
 }
 
 type CountryState struct {
@@ -115,16 +135,34 @@ type IssuedConfig struct {
 }
 
 type AccountSummary struct {
-	AvailableCountries      []Country `json:"available_countries"`
-	ActiveDeviceCount       int       `json:"active_device_count,omitempty"`
-	MaxDeviceCount          int       `json:"max_device_count,omitempty"`
-	SubscriptionEndDate     string    `json:"subscription_end_date,omitempty"`
-	SubscriptionDescription string    `json:"subscription_description,omitempty"`
+	AvailableCountries      []Country             `json:"available_countries"`
+	IssuedCountryConfigs    []IssuedConfigSummary `json:"issued_country_configs,omitempty"`
+	ActiveDeviceCount       int                   `json:"active_device_count,omitempty"`
+	MaxDeviceCount          int                   `json:"max_device_count,omitempty"`
+	SubscriptionEndDate     string                `json:"subscription_end_date,omitempty"`
+	SubscriptionDescription string                `json:"subscription_description,omitempty"`
 }
 
 type CheckResult struct {
+	Status   string           `json:"status"`
+	Messages []string         `json:"messages"`
+	State    *State           `json:"state,omitempty"`
+	Account  *AccountSummary  `json:"account,omitempty"`
+	Keys     []KeyCheckResult `json:"keys,omitempty"`
+}
+
+type KeyCheckResult struct {
+	ID       string          `json:"id"`
+	Name     string          `json:"name"`
 	Status   string          `json:"status"`
 	Messages []string        `json:"messages"`
-	State    *State          `json:"state,omitempty"`
 	Account  *AccountSummary `json:"account,omitempty"`
+}
+
+type IssuedConfigSummary struct {
+	Code              string `json:"code"`
+	Name              string `json:"name,omitempty"`
+	WorkerLastUpdated string `json:"worker_last_updated,omitempty"`
+	LastDownloaded    string `json:"last_downloaded,omitempty"`
+	InstallationUUID  string `json:"installation_uuid,omitempty"`
 }

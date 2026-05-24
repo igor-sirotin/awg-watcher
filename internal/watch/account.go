@@ -2,6 +2,7 @@ package watch
 
 import (
 	"encoding/json"
+	"sort"
 	"strings"
 )
 
@@ -30,11 +31,28 @@ func (a *AccountInfo) Summary() *AccountSummary {
 	}
 	return &AccountSummary{
 		AvailableCountries:      a.AvailableCountries,
+		IssuedCountryConfigs:    issuedConfigSummaries(a),
 		ActiveDeviceCount:       a.ActiveDeviceCount,
 		MaxDeviceCount:          a.MaxDeviceCount,
 		SubscriptionEndDate:     a.SubscriptionEndDate,
 		SubscriptionDescription: a.SubscriptionDescription,
 	}
+}
+
+func issuedConfigSummaries(info *AccountInfo) []IssuedConfigSummary {
+	configs := CountryConfigs(info)
+	out := make([]IssuedConfigSummary, 0, len(configs))
+	for _, cfg := range configs {
+		out = append(out, IssuedConfigSummary{
+			Code:              cfg.ServerCountryCode,
+			Name:              cfg.ServerCountryName,
+			WorkerLastUpdated: cfg.WorkerLastUpdated,
+			LastDownloaded:    cfg.LastDownloaded,
+			InstallationUUID:  cfg.InstallationUUID,
+		})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Code < out[j].Code })
+	return out
 }
 
 func CountryConfigs(info *AccountInfo) map[string]IssuedConfig {

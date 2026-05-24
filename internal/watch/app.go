@@ -9,6 +9,8 @@ import (
 	"io/fs"
 	"log"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -130,10 +132,12 @@ func (a *App) handleStatus(w http.ResponseWriter, r *http.Request) {
 	a.mu.Unlock()
 	st, _ := LoadState(a.paths.StatePath)
 	writeJSON(w, map[string]any{
-		"config":     RedactValue(cfg),
-		"state":      st,
-		"setup_mode": setupMode,
-		"fixture":    a.fixturePath != "",
+		"config":                    RedactValue(cfg),
+		"state":                     st,
+		"setup_mode":                setupMode,
+		"setup_requirements":        setupRequirements(cfg, a.paths, setupMode),
+		"gateway_public_key_status": GatewayPublicKeyFileStatus(cfg.Amnezia.GatewayPublicKeyFilePath),
+		"fixture":                   a.fixturePath != "",
 	})
 }
 
@@ -146,10 +150,12 @@ func (a *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 		ListenAddr        string         `json:"listen_addr"`
 		VPNKey            string         `json:"vpn_key"`
 		Countries         []string       `json:"countries"`
+		Keys              []KeyConfig    `json:"keys"`
 		PollIntervalHours int            `json:"poll_interval_hours"`
 		Telegram          TelegramConfig `json:"telegram"`
 		Amnezia           AmneziaConfig  `json:"amnezia"`
 		WebPassword       string         `json:"web_password"`
+		GatewayPublicKeys string         `json:"gateway_public_keys"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -162,6 +168,17 @@ func (a *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	cfg.VPNKey = mergeSecret(cfg.VPNKey, req.VPNKey)
 	cfg.Countries = normalizeCountries(req.Countries)
+	if req.Keys != nil {
+		keys, err := mergeKeyConfigs(cfg.Keys, req.Keys)
+		if err != nil {
+			a.mu.Unlock()
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+		cfg.Keys = keys
+		cfg.VPNKey = ""
+		cfg.Countries = nil
+	}
 	if req.PollIntervalHours > 0 {
 		cfg.PollIntervalHours = req.PollIntervalHours
 	}
@@ -171,6 +188,18 @@ func (a *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 	cfg.Amnezia.GatewayEndpoint = mergeSecret(cfg.Amnezia.GatewayEndpoint, req.Amnezia.GatewayEndpoint)
 	cfg.Amnezia.GatewayPublicKeyFilePath = mergeSecret(cfg.Amnezia.GatewayPublicKeyFilePath, req.Amnezia.GatewayPublicKeyFilePath)
 	cfg.Amnezia.GatewayPublicKey = mergeSecret(cfg.Amnezia.GatewayPublicKey, req.Amnezia.GatewayPublicKey)
+	if strings.TrimSpace(req.GatewayPublicKeys) != "" {
+		path := cfg.Amnezia.GatewayPublicKeyFilePath
+		if path == "" {
+			path = a.paths.GatewayPublicKeyPath
+			cfg.Amnezia.GatewayPublicKeyFilePath = path
+		}
+		if err := saveGatewayPublicKeyFile(path, req.GatewayPublicKeys); err != nil {
+			a.mu.Unlock()
+			writeError(w, http.StatusBadRequest, err.Error())
+			return
+		}
+	}
 	if req.WebPassword != "" {
 		hash, err := bcrypt.GenerateFromPassword([]byte(req.WebPassword), bcrypt.DefaultCost)
 		if err != nil {
@@ -282,6 +311,67 @@ func writeJSONStatus(w http.ResponseWriter, code int, v any) {
 
 func writeError(w http.ResponseWriter, code int, msg string) {
 	writeJSONStatus(w, code, map[string]any{"error": msg})
+}
+
+func setupRequirements(cfg Config, paths *Paths, setupMode bool) map[string]any {
+	gatewayStatus := GatewayPublicKeyFileStatus(cfg.Amnezia.GatewayPublicKeyFilePath)
+	hasGatewayKeys := gatewayStatus["configured"] == true || strings.TrimSpace(cfg.Amnezia.GatewayPublicKey) != ""
+	return map[string]any{
+		"admin_password":      !setupMode,
+		"gateway_public_keys": hasGatewayKeys,
+		"amnezia_keys":        len(cfg.Keys) > 0,
+		"gateway_key_path":    paths.GatewayPublicKeyPath,
+	}
+}
+
+func mergeKeyConfigs(existing, incoming []KeyConfig) ([]KeyConfig, error) {
+	existingByID := map[string]KeyConfig{}
+	for _, key := range existing {
+		existingByID[key.ID] = key
+	}
+	out := make([]KeyConfig, 0, len(incoming))
+	seen := map[string]bool{}
+	for i := range incoming {
+		key := incoming[i]
+		key.ID = strings.TrimSpace(key.ID)
+		if key.ID == "" {
+			id, err := GenerateKeyID()
+			if err != nil {
+				return nil, err
+			}
+			key.ID = id
+		}
+		if seen[key.ID] {
+			return nil, fmt.Errorf("duplicate key id %s", key.ID)
+		}
+		seen[key.ID] = true
+		old := existingByID[key.ID]
+		key.Name = strings.TrimSpace(key.Name)
+		if key.Name == "" {
+			key.Name = old.Name
+		}
+		if key.Name == "" {
+			key.Name = fmt.Sprintf("Key %d", len(out)+1)
+		}
+		key.VPNKey = mergeSecret(old.VPNKey, key.VPNKey)
+		key.Countries = normalizeCountries(key.Countries)
+		if strings.TrimSpace(key.VPNKey) == "" {
+			return nil, fmt.Errorf("%s is missing vpn key", key.Name)
+		}
+		out = append(out, key)
+	}
+	return out, nil
+}
+
+func saveGatewayPublicKeyFile(path, body string) error {
+	body = strings.TrimSpace(body)
+	if _, err := gatewayPublicKeysFromPEM(body); err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
+		return err
+	}
+	return os.WriteFile(path, []byte(body+"\n"), 0600)
 }
 
 func HashPasswordForTest(password string) string {

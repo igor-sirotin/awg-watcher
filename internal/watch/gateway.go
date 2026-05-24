@@ -206,6 +206,10 @@ func gatewayPublicKeys(cfg *Config) ([]*rsa.PublicKey, error) {
 	if key == "" {
 		return nil, fmt.Errorf("gateway public key is not configured")
 	}
+	return gatewayPublicKeysFromPEM(key)
+}
+
+func gatewayPublicKeysFromPEM(key string) ([]*rsa.PublicKey, error) {
 	var keys []*rsa.PublicKey
 	rest := []byte(key)
 	for {
@@ -227,6 +231,28 @@ func gatewayPublicKeys(cfg *Config) ([]*rsa.PublicKey, error) {
 		return nil, fmt.Errorf("gateway public key file does not contain a PEM public key")
 	}
 	return keys, nil
+}
+
+func GatewayPublicKeyFileStatus(path string) map[string]any {
+	status := map[string]any{
+		"path":       path,
+		"configured": false,
+		"count":      0,
+	}
+	b, err := os.ReadFile(path)
+	if err != nil {
+		status["error"] = err.Error()
+		return status
+	}
+	keys, err := gatewayPublicKeysFromPEM(strings.TrimSpace(string(b)))
+	if err != nil {
+		status["error"] = err.Error()
+		return status
+	}
+	status["configured"] = len(keys) > 0
+	status["count"] = len(keys)
+	delete(status, "error")
+	return status
 }
 
 func parsePublicKeyBlock(block *pem.Block) (*rsa.PublicKey, error) {

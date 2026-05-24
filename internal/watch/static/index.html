@@ -7,65 +7,112 @@
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <header>
-    <h1>Amnezia Config Watcher</h1>
-    <div id="summary" class="summary">Loading</div>
+  <header class="topbar">
+    <div>
+      <h1>Amnezia Config Watcher</h1>
+      <div id="summary" class="summary">Loading</div>
+    </div>
+    <div class="top-actions">
+      <button id="checkNow" type="button">Check now</button>
+      <button id="openSettings" type="button" class="secondary">Settings</button>
+    </div>
   </header>
 
+  <div id="fatalBanner" class="banner hidden"></div>
+
+  <nav class="tabs" aria-label="Sections">
+    <button class="tab active" data-tab="keys" type="button">Keys</button>
+    <button class="tab" data-tab="awg" type="button">AWG Manager</button>
+    <button class="tab" data-tab="tools" type="button">Tools</button>
+  </nav>
+
   <main>
-    <section class="panel">
-      <div class="panel-head">
-        <h2>Status</h2>
-        <button id="checkNow" type="button">Check now</button>
+    <section id="tab-keys" class="tab-panel active">
+      <div class="split">
+        <section class="panel">
+          <div class="panel-head">
+            <h2>AmneziaVPN keys</h2>
+            <button id="addKey" type="button">Add key</button>
+          </div>
+          <div id="keysList" class="key-list"></div>
+        </section>
+
+        <section class="panel">
+          <h2 id="editorTitle">Add key</h2>
+          <form id="keyForm">
+            <input name="id" type="hidden">
+            <label>Name
+              <input name="name" placeholder="Personal Premium">
+            </label>
+            <label>vpn:// key
+              <textarea name="vpn_key" rows="5" spellcheck="false" placeholder="Paste key for a new entry; leave empty when editing"></textarea>
+            </label>
+            <div id="countryPicker" class="country-picker"></div>
+            <div class="actions">
+              <button type="submit">Save key</button>
+              <button id="deleteKey" type="button" class="danger hidden">Delete</button>
+            </div>
+          </form>
+        </section>
       </div>
-      <div id="statusGrid" class="grid"></div>
     </section>
 
-    <section class="panel">
-      <h2>Settings</h2>
-      <form id="settingsForm">
-        <label>Admin password
-          <input name="web_password" type="password" autocomplete="new-password" placeholder="Set or leave unchanged">
-        </label>
-        <label>vpn:// key
-          <textarea name="vpn_key" rows="4" spellcheck="false" placeholder="Paste key or leave unchanged"></textarea>
-        </label>
-        <div class="row">
-          <label>Countries
-            <input name="countries" placeholder="EE, NL">
-          </label>
-          <label>Poll interval, hours
-            <input name="poll_interval_hours" type="number" min="1" step="1">
-          </label>
+    <section id="tab-awg" class="tab-panel">
+      <section class="panel empty">
+        <h2>AWG Manager</h2>
+        <p>Integration is intentionally disabled in this version. This app only detects Amnezia Premium metadata changes and sends notifications.</p>
+      </section>
+    </section>
+
+    <section id="tab-tools" class="tab-panel">
+      <section class="panel">
+        <h2>Diagnostics and tests</h2>
+        <div class="actions">
+          <button id="telegramTest" type="button">Telegram test</button>
+          <a href="/api/diagnostics" id="diagnostics" class="button-link">Download diagnostics</a>
         </div>
-        <div class="row">
-          <label>Telegram bot token
-            <input name="bot_token" type="password" autocomplete="off" placeholder="Leave unchanged">
-          </label>
-          <label>Telegram chat ID
-            <input name="chat_id" placeholder="Leave unchanged">
-          </label>
-        </div>
+        <pre id="output"></pre>
+      </section>
+    </section>
+  </main>
+
+  <dialog id="settingsDialog">
+    <form id="settingsForm" method="dialog">
+      <div class="dialog-head">
+        <h2>Settings</h2>
+        <button id="closeSettings" type="button" class="icon-button" aria-label="Close">x</button>
+      </div>
+      <div id="setupBox" class="setup-box hidden"></div>
+      <label>Admin password
+        <input name="web_password" type="password" autocomplete="new-password" placeholder="Set or leave unchanged">
+      </label>
+      <div class="row">
+        <label>Poll interval, hours
+          <input name="poll_interval_hours" type="number" min="1" step="1">
+        </label>
         <label>Gateway endpoint
           <input name="gateway_endpoint">
         </label>
-        <label>Gateway public key file
-          <input name="gateway_public_key_filepath" placeholder="./local-data/gateway_public_key.pem">
+      </div>
+      <label>Gateway public key file
+        <input name="gateway_public_key_filepath">
+      </label>
+      <label>Gateway public keys
+        <textarea name="gateway_public_keys" rows="7" spellcheck="false" placeholder="-----BEGIN PUBLIC KEY-----"></textarea>
+      </label>
+      <div class="row">
+        <label>Telegram bot token
+          <input name="bot_token" type="password" autocomplete="off" placeholder="Leave unchanged">
         </label>
-        <div class="actions">
-          <button type="submit">Save settings</button>
-          <button id="decodeKey" type="button">Decode key</button>
-          <button id="telegramTest" type="button">Telegram test</button>
-          <a href="/api/diagnostics" id="diagnostics">Diagnostics</a>
-        </div>
-      </form>
-    </section>
-
-    <section class="panel">
-      <h2>Output</h2>
-      <pre id="output"></pre>
-    </section>
-  </main>
+        <label>Telegram chat ID
+          <input name="chat_id" placeholder="Leave unchanged">
+        </label>
+      </div>
+      <div class="actions">
+        <button type="submit">Save settings</button>
+      </div>
+    </form>
+  </dialog>
 
   <script src="/app.js"></script>
 </body>
