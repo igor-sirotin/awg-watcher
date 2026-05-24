@@ -3,11 +3,11 @@ import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
 
-const alertVariants = cva("relative w-full rounded-lg border p-4 text-sm", {
+const alertVariants = cva("relative w-full rounded-lg p-4 text-sm", {
   variants: {
     variant: {
       default: "bg-background text-foreground",
-      destructive: "border-destructive/50 bg-destructive/10 text-destructive",
+      destructive: "bg-destructive/10 text-destructive",
     },
   },
   defaultVariants: {

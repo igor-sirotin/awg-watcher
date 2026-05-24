@@ -37,7 +37,6 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
 import { Textarea } from "@/components/ui/textarea"
 
 const emptyConfig: Config = { keys: [], poll_interval_hours: 6 }
@@ -149,7 +148,7 @@ export default function App() {
     <div className="flex min-h-screen bg-background text-foreground">
       <Sidebar view={view} onView={setView} fixture={Boolean(model?.fixture)} />
       <main className="flex min-h-screen min-w-0 flex-1 flex-col">
-        <header className="flex flex-col gap-4 border-b px-4 py-4 md:flex-row md:items-center md:justify-between lg:px-6">
+        <header className="flex flex-col gap-4 px-4 py-4 md:flex-row md:items-center md:justify-between lg:px-6">
           <div>
             <h1 className="text-2xl font-semibold tracking-normal">{viewTitle}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
@@ -238,8 +237,8 @@ function Sidebar({ view, onView, fixture }: { view: View; onView: (view: View) =
   ]
 
   return (
-    <aside className="flex w-16 shrink-0 flex-col border-r bg-background md:w-64">
-      <div className="flex h-16 items-center justify-center gap-2 border-b px-3 md:justify-start md:px-4">
+    <aside className="flex w-16 shrink-0 flex-col bg-background md:w-64">
+      <div className="flex h-16 items-center justify-center gap-2 px-3 md:justify-start md:px-4">
         <div className="flex size-9 items-center justify-center rounded-md bg-muted">
           <FileKey2 className="size-4" />
         </div>
@@ -266,7 +265,7 @@ function Sidebar({ view, onView, fixture }: { view: View; onView: (view: View) =
           )
         })}
       </nav>
-      <div className="mt-auto hidden border-t p-3 md:block">
+      <div className="mt-auto hidden p-3 md:block">
         <Badge variant={fixture ? "warning" : "info"}>{fixture ? "fixture mode" : "live mode"}</Badge>
       </div>
     </aside>
@@ -412,7 +411,7 @@ function ToolsPage({ output, setOutput }: { output: string; setOutput: (output: 
             Download diagnostics
           </a>
         </div>
-        <pre className="min-h-48 max-h-[32rem] overflow-auto rounded-lg border bg-muted p-3 text-xs text-muted-foreground">{output}</pre>
+        <pre className="min-h-48 max-h-[32rem] overflow-auto rounded-lg bg-muted p-3 text-xs text-muted-foreground">{output}</pre>
       </CardContent>
     </Card>
   )
@@ -951,7 +950,6 @@ function KeyDetailsDialog({
             <Metric label="Issued configs" value={issued.length} />
           </div>
           {state?.last_error ? <Alert variant="destructive"><AlertTitle>Key error</AlertTitle><AlertDescription>{state.last_error}</AlertDescription></Alert> : null}
-          <Separator />
           <DataTable
             title="Watched countries"
             empty="No watched country state yet."
@@ -988,7 +986,7 @@ function DataTable({ title, empty, columns, rows }: { title: string; empty: stri
       {!rows.length ? (
         <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">{empty}</p>
       ) : (
-        <div className="overflow-auto rounded-lg border">
+        <div className="overflow-auto rounded-lg bg-muted">
           <table className="w-full min-w-[720px] border-collapse text-sm">
             <thead className="bg-muted text-muted-foreground">
               <tr>
@@ -999,7 +997,7 @@ function DataTable({ title, empty, columns, rows }: { title: string; empty: stri
             </thead>
             <tbody>
               {rows.map((row, rowIndex) => (
-                <tr key={`${row[0]}-${rowIndex}`} className="border-t">
+                <tr key={`${row[0]}-${rowIndex}`}>
                   {row.map((cell, cellIndex) => (
                     <td key={`${cell}-${cellIndex}`} className={cn("px-3 py-2", cellIndex === row.length - 1 && "mono text-xs text-muted-foreground")}>
                       {cell}
