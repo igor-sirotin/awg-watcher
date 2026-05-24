@@ -12,13 +12,13 @@ export function titleStatus(status?: string) {
 export function statusTone(status?: string) {
   switch (status) {
     case "ok":
-      return "success"
+      return "default"
     case "changed":
     case "missing":
     case "api_error":
       return "destructive"
     case "baseline":
-      return "warning"
+      return "secondary"
     default:
       return "secondary"
   }

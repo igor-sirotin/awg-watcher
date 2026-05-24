@@ -5,11 +5,11 @@ import {
   Bell,
   Check,
   CircleDashed,
-  Clock3,
   Download,
   Eye,
   FileKey2,
   KeyRound,
+  LayoutDashboard,
   Loader2,
   Plus,
   RefreshCw,
@@ -38,10 +38,10 @@ import {
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 
 const emptyConfig: Config = { keys: [], poll_interval_hours: 6 }
+type View = "dashboard" | "keys" | "awg" | "tools"
 
 export default function App() {
   const [model, setModel] = useState<StatusPayload | null>(null)
@@ -52,6 +52,7 @@ export default function App() {
   const [editingKey, setEditingKey] = useState<KeyConfig | null>(null)
   const [keyEditorOpen, setKeyEditorOpen] = useState(false)
   const [detailsKeyID, setDetailsKeyID] = useState("")
+  const [view, setView] = useState<View>("dashboard")
 
   const refresh = useCallback(async ({ quiet = false } = {}) => {
     try {
@@ -137,126 +138,75 @@ export default function App() {
   const config = model?.config || emptyConfig
   const state = model?.state || {}
   const detailsKey = (config.keys || []).find((key) => key.id === detailsKeyID) || null
+  const viewTitle = {
+    dashboard: "Dashboard",
+    keys: "Keys",
+    awg: "AWG Manager",
+    tools: "Tools",
+  }[view]
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-5 sm:px-6 lg:px-8">
-      <header className="flex flex-col gap-4 pb-5 md:flex-row md:items-end md:justify-between">
-        <div className="space-y-2">
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <FileKey2 className="size-4" />
-            <span>Amnezia Premium monitor</span>
-            {model?.fixture ? <Badge variant="outline">fixture</Badge> : null}
-          </div>
+    <div className="flex min-h-screen bg-background text-foreground">
+      <Sidebar view={view} onView={setView} fixture={Boolean(model?.fixture)} />
+      <main className="flex min-h-screen min-w-0 flex-1 flex-col">
+        <header className="flex flex-col gap-4 border-b px-4 py-4 md:flex-row md:items-center md:justify-between lg:px-6">
           <div>
-            <h1 className="text-2xl font-semibold tracking-normal sm:text-3xl">Config Watcher</h1>
+            <h1 className="text-2xl font-semibold tracking-normal">{viewTitle}</h1>
             <p className="mt-1 text-sm text-muted-foreground">
               Last check {formatDateTime(state.last_check)} · next {formatDateTime(model?.next_check)}
             </p>
           </div>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={runCheck} disabled={isChecking || !model}>
-            {isChecking ? <Loader2 className="animate-spin" /> : <RefreshCw />}
-            Check now
-          </Button>
-          <Button variant="outline" onClick={() => setSettingsOpen(true)}>
-            <Settings />
-            Settings
-          </Button>
-        </div>
-      </header>
+          <div className="flex flex-wrap gap-2">
+            <Button onClick={runCheck} disabled={isChecking || !model}>
+              {isChecking ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+              Check now
+            </Button>
+            <Button variant="outline" onClick={() => setSettingsOpen(true)}>
+              <Settings />
+              Settings
+            </Button>
+          </div>
+        </header>
 
-      {displayedFatal ? (
-        <Alert variant="destructive" className="mb-4">
-          <ShieldAlert className="absolute left-4 top-4 size-4" />
-          <AlertTitle className="pl-6">Fatal status</AlertTitle>
-          <AlertDescription className="pl-6">{displayedFatal}</AlertDescription>
-        </Alert>
-      ) : null}
+        <div className="flex-1 space-y-4 overflow-auto p-4 lg:p-6">
+          {displayedFatal ? (
+            <Alert variant="destructive">
+              <ShieldAlert className="absolute left-4 top-4 size-4" />
+              <AlertTitle className="pl-6">Fatal status</AlertTitle>
+              <AlertDescription className="pl-6">{displayedFatal}</AlertDescription>
+            </Alert>
+          ) : null}
 
-      {model ? <SetupAlert model={model} onSettings={() => setSettingsOpen(true)} onAddKey={() => openNewKey(setEditingKey, setKeyEditorOpen)} /> : null}
+          {model ? <SetupAlert model={model} onSettings={() => setSettingsOpen(true)} onAddKey={() => openNewKey(setEditingKey, setKeyEditorOpen)} /> : null}
 
-      <StatusOverview model={model} />
-
-      <Tabs defaultValue="keys" className="mt-5">
-        <TabsList className="grid w-full grid-cols-3 sm:w-auto">
-          <TabsTrigger value="keys">
-            <KeyRound className="mr-2 size-4" />
-            Keys
-          </TabsTrigger>
-          <TabsTrigger value="awg">
-            <Wrench className="mr-2 size-4" />
-            AWG Manager
-          </TabsTrigger>
-          <TabsTrigger value="tools">
-            <SlidersHorizontal className="mr-2 size-4" />
-            Tools
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="keys">
-          <section className="space-y-3">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <h2 className="text-lg font-semibold tracking-normal">AmneziaVPN keys</h2>
-                <p className="text-sm text-muted-foreground">Keys are checked independently and countries can be tracked per key.</p>
-              </div>
-              <Button onClick={() => openNewKey(setEditingKey, setKeyEditorOpen)}>
-                <Plus />
-                Add key
-              </Button>
-            </div>
-            <KeyList
+          {view === "dashboard" ? (
+            <DashboardPage
               model={model}
+              onKeys={() => setView("keys")}
+              onTools={() => setView("tools")}
+              onAddKey={() => openNewKey(setEditingKey, setKeyEditorOpen)}
               onDetails={(id) => setDetailsKeyID(id)}
               onEdit={(key) => {
                 setEditingKey(key)
                 setKeyEditorOpen(true)
               }}
             />
-          </section>
-        </TabsContent>
-
-        <TabsContent value="awg">
-          <Card>
-            <CardHeader>
-              <CardTitle>AWG Manager</CardTitle>
-              <CardDescription>Integration is reserved for a later version. This release only detects config changes and sends notifications.</CardDescription>
-            </CardHeader>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="tools">
-          <Card>
-            <CardHeader>
-              <CardTitle>Diagnostics and tests</CardTitle>
-              <CardDescription>Use these only when validating the app or collecting a redacted support snapshot.</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  variant="secondary"
-                  onClick={async () => {
-                    try {
-                      setOutput(jsonBlock(await api<unknown>("/api/telegram/test", { method: "POST", body: "{}" })))
-                    } catch (err) {
-                      setOutput(err instanceof Error ? err.message : String(err))
-                    }
-                  }}
-                >
-                  <Bell />
-                  Telegram test
-                </Button>
-                <a className={buttonVariants({ variant: "outline" })} href={`/api/diagnostics${setupTokenQuery()}`}>
-                  <Download />
-                  Download diagnostics
-                </a>
-              </div>
-              <pre className="min-h-48 max-h-[32rem] overflow-auto rounded-lg border bg-muted p-3 text-xs text-muted-foreground">{output}</pre>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+          ) : null}
+          {view === "keys" ? (
+            <KeysPage
+              model={model}
+              onAddKey={() => openNewKey(setEditingKey, setKeyEditorOpen)}
+              onDetails={(id) => setDetailsKeyID(id)}
+              onEdit={(key) => {
+                setEditingKey(key)
+                setKeyEditorOpen(true)
+              }}
+            />
+          ) : null}
+          {view === "awg" ? <AwgPage /> : null}
+          {view === "tools" ? <ToolsPage output={output} setOutput={setOutput} /> : null}
+        </div>
+      </main>
 
       <SettingsDialog open={settingsOpen} onOpenChange={setSettingsOpen} model={model} saveConfig={saveConfig} refresh={refresh} />
       <KeyEditorDialog
@@ -279,6 +229,195 @@ export default function App() {
   )
 }
 
+function Sidebar({ view, onView, fixture }: { view: View; onView: (view: View) => void; fixture: boolean }) {
+  const items = [
+    { id: "dashboard" as const, label: "Dashboard", icon: LayoutDashboard },
+    { id: "keys" as const, label: "Keys", icon: KeyRound },
+    { id: "awg" as const, label: "AWG Manager", icon: Wrench },
+    { id: "tools" as const, label: "Tools", icon: SlidersHorizontal },
+  ]
+
+  return (
+    <aside className="flex w-16 shrink-0 flex-col border-r bg-background md:w-64">
+      <div className="flex h-16 items-center justify-center gap-2 border-b px-3 md:justify-start md:px-4">
+        <div className="flex size-9 items-center justify-center rounded-md border">
+          <FileKey2 className="size-4" />
+        </div>
+        <div className="hidden min-w-0 md:block">
+          <div className="truncate text-sm font-semibold">Config Watcher</div>
+          <div className="truncate text-xs text-muted-foreground">Amnezia Premium</div>
+        </div>
+      </div>
+      <nav className="grid gap-1 p-2">
+        {items.map((item) => {
+          const Icon = item.icon
+          return (
+            <Button
+              key={item.id}
+              type="button"
+              variant="ghost"
+              className={cn("justify-center px-0 md:justify-start md:px-4", view === item.id && "bg-accent text-accent-foreground")}
+              onClick={() => onView(item.id)}
+              title={item.label}
+            >
+              <Icon />
+              <span className="hidden md:inline">{item.label}</span>
+            </Button>
+          )
+        })}
+      </nav>
+      <div className="mt-auto hidden border-t p-3 md:block">
+        <Badge variant={fixture ? "outline" : "secondary"}>{fixture ? "fixture mode" : "live mode"}</Badge>
+      </div>
+    </aside>
+  )
+}
+
+function DashboardPage({
+  model,
+  onKeys,
+  onTools,
+  onAddKey,
+  onDetails,
+  onEdit,
+}: {
+  model: StatusPayload | null
+  onKeys: () => void
+  onTools: () => void
+  onAddKey: () => void
+  onDetails: (id: string) => void
+  onEdit: (key: KeyConfig) => void
+}) {
+  const keys = model?.config?.keys || []
+  const keyStates = model?.state?.keys || {}
+  const changedKeys = Object.values(keyStates).filter((key) => key.status === "changed" || key.status === "api_error")
+  const watched = keys.reduce((sum, key) => sum + (key.countries || []).length, 0)
+
+  return (
+    <div className="space-y-4">
+      <StatusOverview model={model} />
+      <div className="grid gap-4 lg:grid-cols-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Keys</CardTitle>
+            <CardDescription>{keys.length} configured, {watched} watched countries</CardDescription>
+          </CardHeader>
+          <CardContent className="flex gap-2">
+            <Button onClick={onKeys} variant="secondary">
+              <KeyRound />
+              Open keys
+            </Button>
+            <Button onClick={onAddKey} variant="outline">
+              <Plus />
+              Add key
+            </Button>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Events</CardTitle>
+            <CardDescription>{changedKeys.length ? `${changedKeys.length} key needs attention` : "No key needs attention"}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button onClick={onTools} variant="secondary">
+              <SlidersHorizontal />
+              Open tools
+            </Button>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Schedule</CardTitle>
+            <CardDescription>Next check {formatDateTime(model?.next_check)}</CardDescription>
+          </CardHeader>
+          <CardContent className="text-sm text-muted-foreground">
+            Poll interval {model?.config?.poll_interval_hours || 6} hours.
+          </CardContent>
+        </Card>
+      </div>
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold tracking-normal">Recent key status</h2>
+          <p className="text-sm text-muted-foreground">The dashboard shows the same live status data as the keys page.</p>
+        </div>
+        <KeyList model={model} onDetails={onDetails} onEdit={onEdit} />
+      </section>
+    </div>
+  )
+}
+
+function KeysPage({
+  model,
+  onAddKey,
+  onDetails,
+  onEdit,
+}: {
+  model: StatusPayload | null
+  onAddKey: () => void
+  onDetails: (id: string) => void
+  onEdit: (key: KeyConfig) => void
+}) {
+  return (
+    <section className="space-y-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-lg font-semibold tracking-normal">AmneziaVPN keys</h2>
+          <p className="text-sm text-muted-foreground">Keys are checked independently and countries can be tracked per key.</p>
+        </div>
+        <Button onClick={onAddKey}>
+          <Plus />
+          Add key
+        </Button>
+      </div>
+      <KeyList model={model} onDetails={onDetails} onEdit={onEdit} />
+    </section>
+  )
+}
+
+function AwgPage() {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>AWG Manager</CardTitle>
+        <CardDescription>Integration is reserved for a later version. This release only detects config changes and sends notifications.</CardDescription>
+      </CardHeader>
+    </Card>
+  )
+}
+
+function ToolsPage({ output, setOutput }: { output: string; setOutput: (output: string) => void }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Diagnostics and tests</CardTitle>
+        <CardDescription>Use these only when validating the app or collecting a redacted support snapshot.</CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex flex-wrap gap-2">
+          <Button
+            variant="secondary"
+            onClick={async () => {
+              try {
+                setOutput(jsonBlock(await api<unknown>("/api/telegram/test", { method: "POST", body: "{}" })))
+              } catch (err) {
+                setOutput(err instanceof Error ? err.message : String(err))
+              }
+            }}
+          >
+            <Bell />
+            Telegram test
+          </Button>
+          <a className={buttonVariants({ variant: "outline" })} href={`/api/diagnostics${setupTokenQuery()}`}>
+            <Download />
+            Download diagnostics
+          </a>
+        </div>
+        <pre className="min-h-48 max-h-[32rem] overflow-auto rounded-lg border bg-muted p-3 text-xs text-muted-foreground">{output}</pre>
+      </CardContent>
+    </Card>
+  )
+}
+
 function StatusOverview({ model }: { model: StatusPayload | null }) {
   const cfg = model?.config || emptyConfig
   const st = model?.state || {}
@@ -293,7 +432,7 @@ function StatusOverview({ model }: { model: StatusPayload | null }) {
   const status = st.status || "unknown"
 
   return (
-    <Card className="border-primary/10 bg-card/95 shadow-lg shadow-slate-950/5">
+    <Card>
       <CardContent className="grid gap-4 p-4 md:grid-cols-[minmax(220px,0.7fr)_1fr]">
         <div className="flex items-center gap-4">
           <StatusIcon status={status} />
@@ -321,9 +460,8 @@ function StatusIcon({ status }: { status?: string }) {
     <div
       className={cn(
         "flex size-12 items-center justify-center rounded-lg border",
-        status === "ok" && "border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-900 dark:bg-emerald-950 dark:text-emerald-300",
-        (status === "api_error" || status === "changed") && "border-destructive/30 bg-destructive/10 text-destructive",
-        status !== "ok" && status !== "api_error" && status !== "changed" && "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900 dark:bg-amber-950 dark:text-amber-300",
+        (status === "api_error" || status === "changed") && "text-destructive",
+        status !== "api_error" && status !== "changed" && "text-muted-foreground",
       )}
     >
       <Icon className="size-5" />
@@ -342,7 +480,7 @@ function SetupAlert({ model, onSettings, onAddKey }: { model: StatusPayload; onS
   if (!missing.length) return null
 
   return (
-    <Alert variant="warning" className="mb-4">
+    <Alert>
       <AlertTitle>Initial setup needs {missing.join(", ")}</AlertTitle>
       <AlertDescription className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <span>Complete the required fields before relying on scheduled checks.</span>
@@ -416,7 +554,7 @@ function KeyCard({
   const watched = keyConfig.countries || []
 
   return (
-    <Card className="overflow-hidden transition-colors hover:border-primary/30">
+    <Card className="overflow-hidden">
       <CardContent className="grid gap-4 p-4 lg:grid-cols-[1fr_auto]">
         <button className="min-w-0 text-left" type="button" onClick={() => onDetails(keyConfig.id)}>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
@@ -439,7 +577,7 @@ function KeyCard({
             <Metric label="Issued" value={account.issued_country_configs?.length ?? "-"} />
             <Metric label="Changed" value={changedCount} tone={changedCount > 0 ? "destructive" : undefined} />
           </div>
-          {state?.last_error ? <div className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-sm text-destructive">{state.last_error}</div> : null}
+          {state?.last_error ? <p className="mt-3 text-sm text-destructive">{state.last_error}</p> : null}
           <CountryRows countries={countries} />
         </button>
         <div className="flex gap-2 lg:flex-col">
@@ -460,7 +598,7 @@ function KeyCard({
 function CountryRows({ countries }: { countries: Array<{ code: string; status?: string; worker_last_updated?: string; last_downloaded?: string }> }) {
   if (!countries.length) return <p className="mt-3 text-sm text-muted-foreground">Run a check to create a baseline.</p>
   return (
-    <div className="mt-3 grid gap-1 rounded-lg border bg-muted/40 p-2 text-xs sm:grid-cols-[90px_90px_1fr_1fr]">
+    <div className="mt-3 grid gap-1 rounded-lg border bg-muted p-2 text-xs sm:grid-cols-[90px_90px_1fr_1fr]">
       {countries.map((country) => (
         <div key={country.code} className="contents">
           <span>{countryLabel(country.code)}</span>
@@ -475,7 +613,7 @@ function CountryRows({ countries }: { countries: Array<{ code: string; status?: 
 
 function Metric({ label, value, tone }: { label: string; value: unknown; tone?: "destructive" }) {
   return (
-    <div className="min-w-0 rounded-md border bg-background/70 px-3 py-2">
+    <div className="min-w-0 rounded-md border bg-background px-3 py-2">
       <div className="truncate text-[11px] font-medium uppercase text-muted-foreground">{label}</div>
       <div className={cn("mt-0.5 truncate text-sm font-medium", tone === "destructive" && "text-destructive")}>{String(value ?? "-")}</div>
     </div>
@@ -609,13 +747,13 @@ function SetupChecklist({ model }: { model: StatusPayload | null }) {
     ["AmneziaVPN key", req.amnezia_keys],
   ] as const
   return (
-    <div className="grid gap-2 rounded-lg border bg-muted/40 p-3">
+    <div className="grid gap-2 rounded-lg border bg-muted p-3">
       <div className="text-sm font-medium">Initial setup</div>
       <div className="grid gap-1 text-sm">
         {rows.map(([label, ok]) => (
           <div key={label} className="flex items-center justify-between gap-3">
             <span className="text-muted-foreground">{label}</span>
-            <Badge variant={ok ? "success" : "warning"}>{ok ? "ready" : "needed"}</Badge>
+            <Badge variant={ok ? "default" : "secondary"}>{ok ? "ready" : "needed"}</Badge>
           </div>
         ))}
       </div>
@@ -770,7 +908,7 @@ function CountryPicker({
               />
               <span>{countryFlag(country.code)} {country.code}</span>
               <span className="truncate text-muted-foreground">{country.name || ""}</span>
-              <Badge variant={issued.has(country.code) ? "success" : "outline"}>{issued.has(country.code) ? "in use" : "available"}</Badge>
+              <Badge variant={issued.has(country.code) ? "default" : "outline"}>{issued.has(country.code) ? "in use" : "available"}</Badge>
             </label>
           )
         })}
@@ -848,7 +986,7 @@ function DataTable({ title, empty, columns, rows }: { title: string; empty: stri
     <section className="grid gap-2">
       <h3 className="text-sm font-semibold tracking-normal">{title}</h3>
       {!rows.length ? (
-        <p className="rounded-lg border bg-muted/30 p-3 text-sm text-muted-foreground">{empty}</p>
+        <p className="rounded-lg border bg-muted p-3 text-sm text-muted-foreground">{empty}</p>
       ) : (
         <div className="overflow-auto rounded-lg border">
           <table className="w-full min-w-[720px] border-collapse text-sm">

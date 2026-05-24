@@ -71,8 +71,9 @@ http://127.0.0.1:8097/?setup_token=...
 
 Open that URL, set an admin password, configure countries such as `EE, NL`, save, then click `Check now`.
 
-The UI is tab-based:
+The UI uses a full-screen sidebar layout:
 
+- `Dashboard`: overall status, schedule, key summary, and recent key status.
 - `Keys`: add AmneziaVPN keys, run checks, and choose countries from each key's account response.
 - `AWG Manager`: placeholder only; no router tunnel changes are made in V1.
 - `Tools`: Telegram test and redacted diagnostics download.
