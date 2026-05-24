@@ -60,25 +60,37 @@ Commands:
 type commonOptions struct {
 	paths   *watch.Paths
 	workdir *string
-	envFile *string
 }
 
 func commonFlags(name string, args []string) (*flag.FlagSet, commonOptions) {
 	fs := flag.NewFlagSet(name, flag.ExitOnError)
 	paths := watch.DefaultPaths()
 	workdir := fs.String("workdir", "", "directory for config.json and state.json")
-	envFile := fs.String("env-file", ".env", "dotenv file to load before running")
 	fs.StringVar(&paths.ConfigPath, "config", paths.ConfigPath, "config JSON path")
 	fs.StringVar(&paths.StatePath, "state", paths.StatePath, "state JSON path")
-	return fs, commonOptions{paths: &paths, workdir: workdir, envFile: envFile}
+	fs.StringVar(&paths.GatewayPublicKeyPath, "gateway-pk-filepath", paths.GatewayPublicKeyPath, "gateway public key PEM file path")
+	return fs, commonOptions{paths: &paths, workdir: workdir}
 }
 
 func applyCommonOptions(opts commonOptions) *watch.Paths {
-	if err := watch.LoadEnvFile(*opts.envFile); err != nil {
-		fatal(err)
-	}
 	opts.paths.ApplyWorkdir(*opts.workdir)
 	return opts.paths
+}
+
+func applyGatewayPublicKeyPath(cfg *watch.Config, paths *watch.Paths, force bool) {
+	if force || cfg.Amnezia.GatewayPublicKeyFilePath == "" {
+		cfg.Amnezia.GatewayPublicKeyFilePath = paths.GatewayPublicKeyPath
+	}
+}
+
+func flagWasSet(fs *flag.FlagSet, name string) bool {
+	wasSet := false
+	fs.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			wasSet = true
+		}
+	})
+	return wasSet
 }
 
 func runServe(args []string) {
@@ -96,6 +108,7 @@ func runServe(args []string) {
 	if listenOverride != "" {
 		cfg.ListenAddr = listenOverride
 	}
+	applyGatewayPublicKeyPath(cfg, paths, flagWasSet(fs, "gateway-pk-filepath"))
 	if cfg.ListenAddr == "" {
 		cfg.ListenAddr = watch.DefaultListenAddr
 	}
@@ -128,6 +141,7 @@ func runCheck(args []string) {
 	if err != nil {
 		fatal(err)
 	}
+	applyGatewayPublicKeyPath(cfg, paths, flagWasSet(fs, "gateway-pk-filepath"))
 	app := watch.NewApp(paths, cfg, fixture, "")
 	result, err := app.Check(context.Background(), true)
 	if err != nil {
@@ -168,6 +182,7 @@ func runNotifyTest(args []string) {
 	if err != nil {
 		fatal(err)
 	}
+	applyGatewayPublicKeyPath(cfg, paths, flagWasSet(fs, "gateway-pk-filepath"))
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
 	if err := watch.SendTelegram(ctx, cfg.Telegram, "Amnezia Config Watcher test notification"); err != nil {
@@ -184,6 +199,7 @@ func runStatus(args []string) {
 	if err != nil {
 		fatal(err)
 	}
+	applyGatewayPublicKeyPath(cfg, paths, flagWasSet(fs, "gateway-pk-filepath"))
 	state, err := watch.LoadState(paths.StatePath)
 	if err != nil {
 		fatal(err)

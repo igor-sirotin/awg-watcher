@@ -169,6 +169,7 @@ func (a *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 	cfg.Telegram.ChatID = mergeSecret(cfg.Telegram.ChatID, req.Telegram.ChatID)
 	cfg.Telegram.Endpoint = mergeSecret(cfg.Telegram.Endpoint, req.Telegram.Endpoint)
 	cfg.Amnezia.GatewayEndpoint = mergeSecret(cfg.Amnezia.GatewayEndpoint, req.Amnezia.GatewayEndpoint)
+	cfg.Amnezia.GatewayPublicKeyFilePath = mergeSecret(cfg.Amnezia.GatewayPublicKeyFilePath, req.Amnezia.GatewayPublicKeyFilePath)
 	cfg.Amnezia.GatewayPublicKey = mergeSecret(cfg.Amnezia.GatewayPublicKey, req.Amnezia.GatewayPublicKey)
 	if req.WebPassword != "" {
 		hash, err := bcrypt.GenerateFromPassword([]byte(req.WebPassword), bcrypt.DefaultCost)

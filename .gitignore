@@ -7,5 +7,6 @@ state.json
 *.log
 .env
 gateway_public_key.pub
+gateway_public_key.pem
 .DS_Store
 .idea/

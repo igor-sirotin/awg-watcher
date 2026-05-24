@@ -26,6 +26,7 @@ function render(data) {
   form.countries.value = (cfg.countries || []).join(", ");
   form.poll_interval_hours.value = cfg.poll_interval_hours || 6;
   form.gateway_endpoint.value = cfg.amnezia?.gateway_endpoint || "";
+  form.gateway_public_key_filepath.value = cfg.amnezia?.gateway_public_key_filepath || "";
 
   const countries = Object.values(st.countries || {});
   statusGrid.innerHTML = "";
@@ -73,7 +74,7 @@ form.addEventListener("submit", async (event) => {
     },
     amnezia: {
       gateway_endpoint: form.gateway_endpoint.value,
-      gateway_public_key: form.gateway_public_key.value
+      gateway_public_key_filepath: form.gateway_public_key_filepath.value
     }
   };
   try {
@@ -81,7 +82,6 @@ form.addEventListener("submit", async (event) => {
     show(data);
     form.vpn_key.value = "";
     form.bot_token.value = "";
-    form.gateway_public_key.value = "";
     form.web_password.value = "";
     await refresh();
   } catch (err) {

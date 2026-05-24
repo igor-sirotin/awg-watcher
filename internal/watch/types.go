@@ -6,21 +6,27 @@ import (
 )
 
 const (
-	DefaultListenAddr        = "127.0.0.1:8097"
-	DefaultConfigPath        = "/opt/etc/amnezia-config-watch/config.json"
-	DefaultStatePath         = "/opt/var/lib/amnezia-config-watch/state.json"
-	DefaultGatewayEndpoint   = "http://gw.amnezia.org:80/"
-	DefaultTelegramEndpoint  = "https://api.telegram.org"
-	defaultPollIntervalHours = 6
+	DefaultListenAddr           = "127.0.0.1:8097"
+	DefaultConfigPath           = "/opt/etc/amnezia-config-watch/config.json"
+	DefaultStatePath            = "/opt/var/lib/amnezia-config-watch/state.json"
+	DefaultGatewayPublicKeyPath = "/opt/etc/amnezia-config-watch/gateway_public_key.pem"
+	DefaultGatewayEndpoint      = "http://gw.amnezia.org:80/"
+	DefaultTelegramEndpoint     = "https://api.telegram.org"
+	defaultPollIntervalHours    = 6
 )
 
 type Paths struct {
-	ConfigPath string
-	StatePath  string
+	ConfigPath           string
+	StatePath            string
+	GatewayPublicKeyPath string
 }
 
 func DefaultPaths() Paths {
-	return Paths{ConfigPath: DefaultConfigPath, StatePath: DefaultStatePath}
+	return Paths{
+		ConfigPath:           DefaultConfigPath,
+		StatePath:            DefaultStatePath,
+		GatewayPublicKeyPath: DefaultGatewayPublicKeyPath,
+	}
 }
 
 func (p *Paths) ApplyWorkdir(workdir string) {
@@ -29,6 +35,9 @@ func (p *Paths) ApplyWorkdir(workdir string) {
 	}
 	p.ConfigPath = filepath.Join(workdir, "config.json")
 	p.StatePath = filepath.Join(workdir, "state.json")
+	if p.GatewayPublicKeyPath == "" || p.GatewayPublicKeyPath == DefaultGatewayPublicKeyPath {
+		p.GatewayPublicKeyPath = filepath.Join(workdir, "gateway_public_key.pem")
+	}
 }
 
 type Config struct {
@@ -48,8 +57,9 @@ type TelegramConfig struct {
 }
 
 type AmneziaConfig struct {
-	GatewayEndpoint  string `json:"gateway_endpoint"`
-	GatewayPublicKey string `json:"gateway_public_key,omitempty"`
+	GatewayEndpoint          string `json:"gateway_endpoint"`
+	GatewayPublicKey         string `json:"gateway_public_key,omitempty"`
+	GatewayPublicKeyFilePath string `json:"gateway_public_key_filepath,omitempty"`
 }
 
 type WebConfig struct {

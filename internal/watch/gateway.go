@@ -137,9 +137,16 @@ func buildGatewayRequest(cfg *Config, auth *PremiumAuth) ([]byte, []byte, []byte
 }
 
 func gatewayPublicKey(cfg *Config) (*rsa.PublicKey, error) {
-	key := strings.TrimSpace(os.Getenv("AMNEZIA_GATEWAY_PUBLIC_KEY"))
-	if key == "" && cfg != nil {
+	key := ""
+	if cfg != nil {
 		key = strings.TrimSpace(cfg.Amnezia.GatewayPublicKey)
+		if key == "" && cfg.Amnezia.GatewayPublicKeyFilePath != "" {
+			b, err := os.ReadFile(cfg.Amnezia.GatewayPublicKeyFilePath)
+			if err != nil {
+				return nil, fmt.Errorf("read gateway public key file %s: %w", cfg.Amnezia.GatewayPublicKeyFilePath, err)
+			}
+			key = strings.TrimSpace(string(b))
+		}
 	}
 	if key == "" {
 		return nil, fmt.Errorf("gateway public key is not configured")

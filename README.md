@@ -17,7 +17,7 @@ Implemented:
 - redacted diagnostics export
 - Entware init-script scaffold
 
-The production Amnezia gateway public key is not committed. To run live gateway calls, provide it with `AMNEZIA_GATEWAY_PUBLIC_KEY`, a local `.env` file, or `amnezia.gateway_public_key` in the config.
+The production Amnezia gateway public key is not committed. To run live gateway calls, put it in a local PEM file and pass `--gateway-pk-filepath`, or use the default key-file path described below.
 
 ## Build And Test
 
@@ -76,42 +76,57 @@ Useful local flags:
 --workdir ./local-data
 --config ./config.json
 --state ./state.json
+--gateway-pk-filepath ./gateway_public_key.pem
 --fixture-account-info ./testdata/account_info_baseline.json
 ```
 
-`--workdir` stores `config.json` and `state.json` inside that directory. It is the easiest
-way to run locally without writing to `/opt`.
+`--workdir` stores `config.json`, `state.json`, and the default gateway public key file
+inside that directory. It is the easiest way to run locally without writing to `/opt`.
 
 `decode` prints redacted JSON by default. Use `--show-secrets` only on a trusted machine.
 
-## Local `.env`
+## Gateway Public Key File
 
-The app loads `.env` by default for `serve`, `check`, `notify-test`, and `status`.
-Real `.env` files are ignored by git.
+The default gateway public key path on Entware is:
 
-Create one from the example:
+```text
+/opt/etc/amnezia-config-watch/gateway_public_key.pem
+```
+
+When running locally with `--workdir ./local-data`, the default becomes:
+
+```text
+./local-data/gateway_public_key.pem
+```
+
+Create the file with mode `0600`:
 
 ```sh
-cp .env.example .env
-chmod 600 .env
+mkdir -p ./local-data
+cp gateway_public_key.pub ./local-data/gateway_public_key.pem
+chmod 600 ./local-data/gateway_public_key.pem
 ```
 
-Store the gateway public key as a single quoted value with `\n` escapes:
+The file should contain the normal PEM text:
 
-```env
-AMNEZIA_GATEWAY_PUBLIC_KEY="-----BEGIN PUBLIC KEY-----\n...\n-----END PUBLIC KEY-----"
+```text
+-----BEGIN PUBLIC KEY-----
+...
+-----END PUBLIC KEY-----
 ```
 
-Then run normally:
+Then run:
 
 ```sh
 go run ./cmd/amnezia-config-watch serve --workdir ./local-data
 ```
 
-To use a different dotenv file:
+To use a different key file:
 
 ```sh
-go run ./cmd/amnezia-config-watch check --workdir ./local-data --env-file ./private/amnezia.env
+go run ./cmd/amnezia-config-watch check \
+  --workdir ./local-data \
+  --gateway-pk-filepath ./private/gateway_public_key.pem
 ```
 
 ## Keenetic/Entware Usage
@@ -163,7 +178,7 @@ Configure:
 
 - Amnezia Premium `vpn://` key
 - countries to watch
-- gateway public key via `AMNEZIA_GATEWAY_PUBLIC_KEY` or config
+- gateway public key file via `--gateway-pk-filepath`
 - Telegram bot token and chat ID, if notifications are wanted
 
 The live client sends one encrypted POST to:
