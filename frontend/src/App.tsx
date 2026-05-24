@@ -136,11 +136,23 @@ export default function App() {
   const displayedFatal = fatalError || stateError
   const config = model?.config || emptyConfig
   const detailsKey = (config.keys || []).find((key) => key.id === detailsKeyID) || null
-  const viewTitle = {
-    dashboard: "Dashboard",
-    keys: "Keys",
-    awg: "AWG Manager",
-    tools: "Tools",
+  const viewMeta = {
+    dashboard: {
+      title: "Dashboard",
+      description: "Overall status, schedule, and recent key activity.",
+    },
+    keys: {
+      title: "AmneziaVPN keys",
+      description: "Keys are checked independently and countries can be tracked per key.",
+    },
+    awg: {
+      title: "AWG Manager",
+      description: "Reserved for future router tunnel integration.",
+    },
+    tools: {
+      title: "Tools",
+      description: "Diagnostics, test notifications, and redacted support snapshots.",
+    },
   }[view]
 
   return (
@@ -149,13 +161,22 @@ export default function App() {
       <main className="flex min-h-screen min-w-0 flex-1 flex-col">
         <header className="flex flex-col gap-4 px-4 py-4 md:flex-row md:items-center md:justify-between lg:px-6">
           <div>
-            <h1 className="text-2xl font-semibold tracking-normal">{viewTitle}</h1>
+            <h1 className="text-2xl font-semibold tracking-normal">{viewMeta.title}</h1>
+            <p className="mt-1 text-sm text-muted-foreground">{viewMeta.description}</p>
           </div>
           <div className="flex flex-wrap gap-2">
-            <Button onClick={runCheck} disabled={isChecking || !model}>
-              {isChecking ? <Loader2 className="animate-spin" /> : <RefreshCw />}
-              Check now
-            </Button>
+            {view === "dashboard" ? (
+              <Button onClick={runCheck} disabled={isChecking || !model}>
+                {isChecking ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+                Check now
+              </Button>
+            ) : null}
+            {view === "keys" ? (
+              <Button onClick={() => openNewKey(setEditingKey, setKeyEditorOpen)}>
+                <Plus />
+                Add key
+              </Button>
+            ) : null}
           </div>
         </header>
 
@@ -186,7 +207,6 @@ export default function App() {
           {view === "keys" ? (
             <KeysPage
               model={model}
-              onAddKey={() => openNewKey(setEditingKey, setKeyEditorOpen)}
               onDetails={(id) => setDetailsKeyID(id)}
               onEdit={(key) => {
                 setEditingKey(key)
@@ -361,27 +381,15 @@ function DashboardPage({
 
 function KeysPage({
   model,
-  onAddKey,
   onDetails,
   onEdit,
 }: {
   model: StatusPayload | null
-  onAddKey: () => void
   onDetails: (id: string) => void
   onEdit: (key: KeyConfig) => void
 }) {
   return (
-    <section className="space-y-3">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-lg font-semibold tracking-normal">AmneziaVPN keys</h2>
-          <p className="text-sm text-muted-foreground">Keys are checked independently and countries can be tracked per key.</p>
-        </div>
-        <Button onClick={onAddKey}>
-          <Plus />
-          Add key
-        </Button>
-      </div>
+    <section>
       <KeyList model={model} onDetails={onDetails} onEdit={onEdit} />
     </section>
   )
@@ -391,8 +399,8 @@ function AwgPage() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>AWG Manager</CardTitle>
-        <CardDescription>Integration is reserved for a later version. This release only detects config changes and sends notifications.</CardDescription>
+        <CardTitle>Not configured yet</CardTitle>
+        <CardDescription>This release only detects Amnezia metadata changes and sends notifications.</CardDescription>
       </CardHeader>
     </Card>
   )
@@ -403,7 +411,7 @@ function ToolsPage({ output, setOutput }: { output: string; setOutput: (output: 
     <Card>
       <CardHeader>
         <CardTitle>Diagnostics and tests</CardTitle>
-        <CardDescription>Use these only when validating the app or collecting a redacted support snapshot.</CardDescription>
+        <CardDescription>Validate delivery or collect a redacted snapshot.</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex flex-wrap gap-2">
@@ -565,45 +573,40 @@ function KeyCard({
   const account = state?.last_account || {}
   const countries = Object.values(state?.countries || {}).sort((a, b) => a.code.localeCompare(b.code))
   const changedCount = countries.filter((country) => country.status === "changed" || country.status === "missing").length
-  const watched = keyConfig.countries || []
 
   return (
     <Card className="overflow-hidden">
-      <CardContent className="grid gap-4 p-4 lg:grid-cols-[1fr_auto]">
-        <button className="min-w-0 text-left" type="button" onClick={() => onDetails(keyConfig.id)}>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="truncate text-base font-semibold tracking-normal">{keyConfig.name || "Key"}</h3>
-                <Badge variant={statusTone(state?.status) as never}>{titleStatus(state?.status)}</Badge>
-              </div>
-              <p className="mt-1 text-sm text-muted-foreground">
-                {watched.length ? watched.map(countryLabel).join(", ") : "No countries selected"}
-              </p>
+      <CardContent className="grid gap-4 p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h3 className="truncate text-base font-semibold tracking-normal">{keyConfig.name || "Key"}</h3>
+              <Badge variant={statusTone(state?.status) as never}>{titleStatus(state?.status)}</Badge>
+              {changedCount > 0 ? <Badge variant="destructive">{changedCount} changed</Badge> : null}
             </div>
+            {state?.last_error ? <p className="mt-2 text-sm text-destructive">{state.last_error}</p> : null}
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
-            <Metric label="Last check" value={formatDateTime(state?.last_check)} />
-            <Metric label="Next check" value={formatDateTime(nextCheck)} />
-            <Metric label="Devices" value={account.max_device_count ? `${account.active_device_count || 0}/${account.max_device_count}` : "-"} />
-            <Metric label="Subscription" value={formatDate(account.subscription_end_date)} />
-            <Metric label="Available" value={account.available_countries?.length ?? "-"} />
-            <Metric label="Issued" value={account.issued_country_configs?.length ?? "-"} />
-            <Metric label="Changed" value={changedCount} tone={changedCount > 0 ? "destructive" : undefined} />
+          <div className="flex shrink-0 gap-2">
+            <Button variant="outline" size="sm" onClick={() => onDetails(keyConfig.id)}>
+              <Eye />
+              Details
+            </Button>
+            <Button variant="secondary" size="sm" onClick={() => onEdit(keyConfig)}>
+              <Settings />
+              Edit
+            </Button>
           </div>
-          {state?.last_error ? <p className="mt-3 text-sm text-destructive">{state.last_error}</p> : null}
-          <CountryRows countries={countries} />
-        </button>
-        <div className="flex gap-2 lg:flex-col">
-          <Button variant="outline" size="sm" onClick={() => onDetails(keyConfig.id)}>
-            <Eye />
-            Details
-          </Button>
-          <Button variant="secondary" size="sm" onClick={() => onEdit(keyConfig)}>
-            <Settings />
-            Edit
-          </Button>
         </div>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
+          <Metric label="Last check" value={formatDateTime(state?.last_check)} />
+          <Metric label="Next check" value={formatDateTime(nextCheck)} />
+          <Metric label="Devices" value={account.max_device_count ? `${account.active_device_count || 0}/${account.max_device_count}` : "-"} />
+          <Metric label="Subscription" value={formatDate(account.subscription_end_date)} />
+          <Metric label="Available" value={account.available_countries?.length ?? "-"} tone="accent" />
+          <Metric label="Issued" value={account.issued_country_configs?.length ?? "-"} tone="accent" />
+          <Metric label="Changed" value={changedCount} tone={changedCount > 0 ? "destructive" : undefined} />
+        </div>
+        <CountryRows countries={countries} />
       </CardContent>
     </Card>
   )
