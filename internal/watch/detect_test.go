@@ -113,3 +113,15 @@ func TestApplyDefaultsMigratesSingleKeyConfig(t *testing.T) {
 		t.Fatalf("countries = %+v", cfg.Keys[0].Countries)
 	}
 }
+
+func TestAutoSelectIssuedCountries(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Keys = []KeyConfig{{ID: "one", Name: "One", VPNKey: "fixture"}}
+	app := NewApp(&Paths{}, cfg, "../../testdata/account_info_baseline.json", "")
+	if err := app.autoSelectIssuedCountries(context.Background(), cfg); err != nil {
+		t.Fatal(err)
+	}
+	if len(cfg.Keys[0].Countries) != 2 || cfg.Keys[0].Countries[0] != "EE" || cfg.Keys[0].Countries[1] != "NL" {
+		t.Fatalf("countries = %+v", cfg.Keys[0].Countries)
+	}
+}

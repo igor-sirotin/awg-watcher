@@ -277,7 +277,10 @@ keyForm.addEventListener("submit", async (event) => {
     countries
   };
   try {
-    const data = await saveConfig({keys: currentKeysFromUI(nextKey)});
+    const data = await saveConfig({
+      keys: currentKeysFromUI(nextKey),
+      auto_select_issued_countries: !countries.length
+    });
     selectedKeyID = data.config.keys.find(k => k.name === nextKey.name)?.id || nextKey.id || selectedKeyID;
     await api("/api/check", {method: "POST", body: "{}"}).catch(() => null);
     await refresh();
@@ -354,7 +357,8 @@ async function saveConfig(patch) {
     telegram: patch.telegram || {},
     amnezia: patch.amnezia || {},
     web_password: patch.web_password || "",
-    gateway_public_keys: patch.gateway_public_keys || ""
+    gateway_public_keys: patch.gateway_public_keys || "",
+    auto_select_issued_countries: patch.auto_select_issued_countries || false
   };
   if (Object.prototype.hasOwnProperty.call(patch, "keys")) body.keys = patch.keys;
   return api("/api/settings", {method: "POST", body: JSON.stringify(body)});

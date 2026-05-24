@@ -157,6 +157,7 @@ func (a *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 		Amnezia           AmneziaConfig  `json:"amnezia"`
 		WebPassword       string         `json:"web_password"`
 		GatewayPublicKeys string         `json:"gateway_public_keys"`
+		AutoSelectIssued  bool           `json:"auto_select_issued_countries"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -214,6 +215,14 @@ func (a *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 	}
 	passwordChanged := req.WebPassword != ""
 	applyDefaults(&cfg)
+	if req.AutoSelectIssued {
+		a.mu.Unlock()
+		if err := a.autoSelectIssuedCountries(r.Context(), &cfg); err != nil {
+			writeError(w, http.StatusBadGateway, err.Error())
+			return
+		}
+		a.mu.Lock()
+	}
 	if err := SaveConfig(a.paths.ConfigPath, &cfg); err != nil {
 		a.mu.Unlock()
 		writeError(w, http.StatusInternalServerError, err.Error())
@@ -235,6 +244,36 @@ func (a *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 		"setup_complete":   isNowSetupComplete,
 		"password_changed": passwordChanged,
 	})
+}
+
+func (a *App) autoSelectIssuedCountries(ctx context.Context, cfg *Config) error {
+	for i := range cfg.Keys {
+		if len(cfg.Keys[i].Countries) > 0 {
+			continue
+		}
+		keyCfg := *cfg
+		keyCfg.VPNKey = cfg.Keys[i].VPNKey
+		client := AccountClient{Config: &keyCfg, FixturePath: a.fixturePath}
+		info, err := client.FetchAccountInfo(ctx)
+		if err != nil {
+			return fmt.Errorf("%s: fetch account info: %w", cfg.Keys[i].Name, err)
+		}
+		countries := issuedCountryCodes(info)
+		if len(countries) == 0 {
+			continue
+		}
+		cfg.Keys[i].Countries = countries
+	}
+	return nil
+}
+
+func issuedCountryCodes(info *AccountInfo) []string {
+	configs := CountryConfigs(info)
+	countries := make([]string, 0, len(configs))
+	for code := range configs {
+		countries = append(countries, code)
+	}
+	return normalizeCountries(countries)
 }
 
 func (a *App) handleDecode(w http.ResponseWriter, r *http.Request) {
