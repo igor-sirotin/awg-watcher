@@ -38,8 +38,7 @@ Fixture mode does not call Amnezia or Telegram unless you press the Telegram tes
 
 ```sh
 go run ./cmd/amnezia-config-watch serve \
-  --config ./config.json \
-  --state ./state.json \
+  --workdir ./local-data \
   --fixture-account-info ./testdata/account_info_baseline.json
 ```
 
@@ -55,8 +54,7 @@ To simulate a change, restart with:
 
 ```sh
 go run ./cmd/amnezia-config-watch serve \
-  --config ./config.json \
-  --state ./state.json \
+  --workdir ./local-data \
   --fixture-account-info ./testdata/account_info_changed.json
 ```
 
@@ -75,10 +73,14 @@ amnezia-config-watch status
 Useful local flags:
 
 ```sh
+--workdir ./local-data
 --config ./config.json
 --state ./state.json
 --fixture-account-info ./testdata/account_info_baseline.json
 ```
+
+`--workdir` stores `config.json` and `state.json` inside that directory. It is the easiest
+way to run locally without writing to `/opt`.
 
 `decode` prints redacted JSON by default. Use `--show-secrets` only on a trusted machine.
 

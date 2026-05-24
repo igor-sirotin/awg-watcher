@@ -57,20 +57,22 @@ Commands:
 `, version)
 }
 
-func commonFlags(name string, args []string) (*flag.FlagSet, *watch.Paths) {
+func commonFlags(name string, args []string) (*flag.FlagSet, *watch.Paths, *string) {
 	fs := flag.NewFlagSet(name, flag.ExitOnError)
 	paths := watch.DefaultPaths()
+	workdir := fs.String("workdir", "", "directory for config.json and state.json")
 	fs.StringVar(&paths.ConfigPath, "config", paths.ConfigPath, "config JSON path")
 	fs.StringVar(&paths.StatePath, "state", paths.StatePath, "state JSON path")
-	return fs, &paths
+	return fs, &paths, workdir
 }
 
 func runServe(args []string) {
-	fs, paths := commonFlags("serve", args)
+	fs, paths, workdir := commonFlags("serve", args)
 	var listenOverride, fixture string
 	fs.StringVar(&listenOverride, "listen", "", "override listen address")
 	fs.StringVar(&fixture, "fixture-account-info", "", "read account_info JSON from this file instead of Amnezia gateway")
 	fs.Parse(args)
+	paths.ApplyWorkdir(*workdir)
 
 	cfg, err := watch.LoadConfig(paths.ConfigPath)
 	if err != nil {
@@ -101,10 +103,11 @@ func runServe(args []string) {
 }
 
 func runCheck(args []string) {
-	fs, paths := commonFlags("check", args)
+	fs, paths, workdir := commonFlags("check", args)
 	var fixture string
 	fs.StringVar(&fixture, "fixture-account-info", "", "read account_info JSON from this file instead of Amnezia gateway")
 	fs.Parse(args)
+	paths.ApplyWorkdir(*workdir)
 
 	cfg, err := watch.LoadConfig(paths.ConfigPath)
 	if err != nil {
@@ -143,8 +146,9 @@ func runDecode(args []string) {
 }
 
 func runNotifyTest(args []string) {
-	fs, paths := commonFlags("notify-test", args)
+	fs, paths, workdir := commonFlags("notify-test", args)
 	fs.Parse(args)
+	paths.ApplyWorkdir(*workdir)
 	cfg, err := watch.LoadConfig(paths.ConfigPath)
 	if err != nil {
 		fatal(err)
@@ -158,8 +162,9 @@ func runNotifyTest(args []string) {
 }
 
 func runStatus(args []string) {
-	fs, paths := commonFlags("status", args)
+	fs, paths, workdir := commonFlags("status", args)
 	fs.Parse(args)
+	paths.ApplyWorkdir(*workdir)
 	cfg, err := watch.LoadConfig(paths.ConfigPath)
 	if err != nil {
 		fatal(err)

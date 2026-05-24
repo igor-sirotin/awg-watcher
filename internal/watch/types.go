@@ -1,6 +1,9 @@
 package watch
 
-import "time"
+import (
+	"path/filepath"
+	"time"
+)
 
 const (
 	DefaultListenAddr        = "127.0.0.1:8097"
@@ -18,6 +21,14 @@ type Paths struct {
 
 func DefaultPaths() Paths {
 	return Paths{ConfigPath: DefaultConfigPath, StatePath: DefaultStatePath}
+}
+
+func (p *Paths) ApplyWorkdir(workdir string) {
+	if workdir == "" {
+		return
+	}
+	p.ConfigPath = filepath.Join(workdir, "config.json")
+	p.StatePath = filepath.Join(workdir, "state.json")
 }
 
 type Config struct {
