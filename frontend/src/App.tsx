@@ -135,7 +135,6 @@ export default function App() {
   const stateError = model?.state?.status === "api_error" ? model.state.last_error || "Gateway API error" : ""
   const displayedFatal = fatalError || stateError
   const config = model?.config || emptyConfig
-  const state = model?.state || {}
   const detailsKey = (config.keys || []).find((key) => key.id === detailsKeyID) || null
   const viewTitle = {
     dashboard: "Dashboard",
@@ -146,23 +145,16 @@ export default function App() {
 
   return (
     <div className="flex min-h-screen bg-background text-foreground">
-      <Sidebar view={view} onView={setView} fixture={Boolean(model?.fixture)} />
+      <Sidebar view={view} onView={setView} fixture={Boolean(model?.fixture)} onSettings={() => setSettingsOpen(true)} />
       <main className="flex min-h-screen min-w-0 flex-1 flex-col">
         <header className="flex flex-col gap-4 px-4 py-4 md:flex-row md:items-center md:justify-between lg:px-6">
           <div>
             <h1 className="text-2xl font-semibold tracking-normal">{viewTitle}</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Last check {formatDateTime(state.last_check)} · next {formatDateTime(model?.next_check)}
-            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <Button onClick={runCheck} disabled={isChecking || !model}>
               {isChecking ? <Loader2 className="animate-spin" /> : <RefreshCw />}
               Check now
-            </Button>
-            <Button variant="outline" onClick={() => setSettingsOpen(true)}>
-              <Settings />
-              Settings
             </Button>
           </div>
         </header>
@@ -228,7 +220,17 @@ export default function App() {
   )
 }
 
-function Sidebar({ view, onView, fixture }: { view: View; onView: (view: View) => void; fixture: boolean }) {
+function Sidebar({
+  view,
+  onView,
+  fixture,
+  onSettings,
+}: {
+  view: View
+  onView: (view: View) => void
+  fixture: boolean
+  onSettings: () => void
+}) {
   const items = [
     { id: "dashboard" as const, label: "Dashboard", icon: LayoutDashboard },
     { id: "keys" as const, label: "Keys", icon: KeyRound },
@@ -265,8 +267,20 @@ function Sidebar({ view, onView, fixture }: { view: View; onView: (view: View) =
           )
         })}
       </nav>
-      <div className="mt-auto hidden p-3 md:block">
-        <Badge variant={fixture ? "warning" : "info"}>{fixture ? "fixture mode" : "live mode"}</Badge>
+      <div className="mt-auto grid gap-2 p-2 md:p-3">
+        <Button
+          type="button"
+          variant="ghost"
+          className="justify-center px-0 md:justify-start md:px-4"
+          onClick={onSettings}
+          title="Settings"
+        >
+          <Settings />
+          <span className="hidden md:inline">Settings</span>
+        </Button>
+        <div className="hidden md:block">
+          <Badge variant={fixture ? "secondary" : "default"}>{fixture ? "fixture mode" : "live mode"}</Badge>
+        </div>
       </div>
     </aside>
   )
@@ -441,8 +455,8 @@ function StatusOverview({ model }: { model: StatusPayload | null }) {
           </div>
         </div>
         <div className="grid grid-cols-2 gap-2 md:grid-cols-6">
-          <Metric label="Keys" value={model ? keys.length : "loading"} />
-          <Metric label="Watched" value={watched} />
+          <Metric label="Keys" value={model ? keys.length : "loading"} tone="accent" />
+          <Metric label="Watched" value={watched} tone="accent" />
           <Metric label="Changed" value={changed} tone={changed > 0 ? "destructive" : undefined} />
           <Metric label="API errors" value={apiErrors} tone={apiErrors > 0 ? "destructive" : undefined} />
           <Metric label="Last check" value={formatDateTime(st.last_check)} />
@@ -458,9 +472,10 @@ function StatusIcon({ status }: { status?: string }) {
   return (
     <div
       className={cn(
-        "flex size-12 items-center justify-center rounded-lg bg-muted",
-        (status === "api_error" || status === "changed") && "text-destructive",
-        status !== "api_error" && status !== "changed" && "text-muted-foreground",
+        "flex size-12 items-center justify-center rounded-lg",
+        status === "ok" && "bg-primary text-primary-foreground",
+        (status === "api_error" || status === "changed") && "bg-destructive text-destructive-foreground",
+        status !== "ok" && status !== "api_error" && status !== "changed" && "bg-secondary text-secondary-foreground",
       )}
     >
       <Icon className="size-5" />
@@ -610,11 +625,18 @@ function CountryRows({ countries }: { countries: Array<{ code: string; status?: 
   )
 }
 
-function Metric({ label, value, tone }: { label: string; value: unknown; tone?: "destructive" }) {
+function Metric({ label, value, tone }: { label: string; value: unknown; tone?: "accent" | "destructive" }) {
   return (
-    <div className="min-w-0 rounded-md bg-muted px-3 py-2">
-      <div className="truncate text-[11px] font-medium uppercase text-muted-foreground">{label}</div>
-      <div className={cn("mt-0.5 truncate text-sm font-medium", tone === "destructive" && "text-destructive")}>{String(value ?? "-")}</div>
+    <div
+      className={cn(
+        "min-w-0 rounded-md px-3 py-2",
+        !tone && "bg-muted",
+        tone === "accent" && "bg-accent text-accent-foreground",
+        tone === "destructive" && "bg-destructive/10 text-destructive",
+      )}
+    >
+      <div className="truncate text-[11px] font-medium uppercase opacity-70">{label}</div>
+      <div className="mt-0.5 truncate text-sm font-medium">{String(value ?? "-")}</div>
     </div>
   )
 }
@@ -752,7 +774,7 @@ function SetupChecklist({ model }: { model: StatusPayload | null }) {
         {rows.map(([label, ok]) => (
           <div key={label} className="flex items-center justify-between gap-3">
             <span className="text-muted-foreground">{label}</span>
-            <Badge variant={ok ? "success" : "warning"}>{ok ? "ready" : "needed"}</Badge>
+            <Badge variant={ok ? "default" : "secondary"}>{ok ? "ready" : "needed"}</Badge>
           </div>
         ))}
       </div>
@@ -907,7 +929,7 @@ function CountryPicker({
               />
               <span>{countryFlag(country.code)} {country.code}</span>
               <span className="truncate text-muted-foreground">{country.name || ""}</span>
-              <Badge variant={issued.has(country.code) ? "success" : "info"}>{issued.has(country.code) ? "in use" : "available"}</Badge>
+              <Badge variant={issued.has(country.code) ? "default" : "secondary"}>{issued.has(country.code) ? "in use" : "available"}</Badge>
             </label>
           )
         })}
