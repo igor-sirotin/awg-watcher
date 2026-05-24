@@ -240,7 +240,7 @@ function Sidebar({ view, onView, fixture }: { view: View; onView: (view: View) =
   return (
     <aside className="flex w-16 shrink-0 flex-col border-r bg-background md:w-64">
       <div className="flex h-16 items-center justify-center gap-2 border-b px-3 md:justify-start md:px-4">
-        <div className="flex size-9 items-center justify-center rounded-md border">
+        <div className="flex size-9 items-center justify-center rounded-md bg-muted">
           <FileKey2 className="size-4" />
         </div>
         <div className="hidden min-w-0 md:block">
@@ -459,7 +459,7 @@ function StatusIcon({ status }: { status?: string }) {
   return (
     <div
       className={cn(
-        "flex size-12 items-center justify-center rounded-lg border",
+        "flex size-12 items-center justify-center rounded-lg bg-muted",
         (status === "api_error" || status === "changed") && "text-destructive",
         status !== "api_error" && status !== "changed" && "text-muted-foreground",
       )}
@@ -598,7 +598,7 @@ function KeyCard({
 function CountryRows({ countries }: { countries: Array<{ code: string; status?: string; worker_last_updated?: string; last_downloaded?: string }> }) {
   if (!countries.length) return <p className="mt-3 text-sm text-muted-foreground">Run a check to create a baseline.</p>
   return (
-    <div className="mt-3 grid gap-1 rounded-lg border bg-muted p-2 text-xs sm:grid-cols-[90px_90px_1fr_1fr]">
+    <div className="mt-3 grid gap-1 rounded-lg bg-muted p-2 text-xs sm:grid-cols-[90px_90px_1fr_1fr]">
       {countries.map((country) => (
         <div key={country.code} className="contents">
           <span>{countryLabel(country.code)}</span>
@@ -613,7 +613,7 @@ function CountryRows({ countries }: { countries: Array<{ code: string; status?: 
 
 function Metric({ label, value, tone }: { label: string; value: unknown; tone?: "destructive" }) {
   return (
-    <div className="min-w-0 rounded-md border bg-background px-3 py-2">
+    <div className="min-w-0 rounded-md bg-muted px-3 py-2">
       <div className="truncate text-[11px] font-medium uppercase text-muted-foreground">{label}</div>
       <div className={cn("mt-0.5 truncate text-sm font-medium", tone === "destructive" && "text-destructive")}>{String(value ?? "-")}</div>
     </div>
@@ -747,7 +747,7 @@ function SetupChecklist({ model }: { model: StatusPayload | null }) {
     ["AmneziaVPN key", req.amnezia_keys],
   ] as const
   return (
-    <div className="grid gap-2 rounded-lg border bg-muted p-3">
+    <div className="grid gap-2 rounded-lg bg-muted p-3">
       <div className="text-sm font-medium">Initial setup</div>
       <div className="grid gap-1 text-sm">
         {rows.map(([label, ok]) => (
@@ -890,7 +890,7 @@ function CountryPicker({
   return (
     <div className="grid gap-2">
       <Label>Countries</Label>
-      <div className="grid max-h-80 gap-2 overflow-auto rounded-lg border p-2">
+      <div className="grid max-h-80 gap-2 overflow-auto rounded-lg bg-muted p-2">
         {available.map((country) => {
           const checked = selected.has(country.code)
           return (
@@ -986,7 +986,7 @@ function DataTable({ title, empty, columns, rows }: { title: string; empty: stri
     <section className="grid gap-2">
       <h3 className="text-sm font-semibold tracking-normal">{title}</h3>
       {!rows.length ? (
-        <p className="rounded-lg border bg-muted p-3 text-sm text-muted-foreground">{empty}</p>
+        <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">{empty}</p>
       ) : (
         <div className="overflow-auto rounded-lg border">
           <table className="w-full min-w-[720px] border-collapse text-sm">
