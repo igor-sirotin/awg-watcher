@@ -115,6 +115,9 @@ The file should contain the normal PEM text:
 -----END PUBLIC KEY-----
 ```
 
+If you extracted more than one public key from the Amnezia app, you can put all PEM
+blocks in the same file. The watcher will try them in order for `v1/account_info`.
+
 Then run:
 
 ```sh

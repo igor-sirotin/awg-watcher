@@ -11,6 +11,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -20,6 +21,8 @@ import (
 	"strings"
 	"time"
 )
+
+const gatewayHTTPErrorBodyLimit = 512
 
 type AccountClient struct {
 	Config      *Config
@@ -46,7 +49,7 @@ func (c AccountClient) FetchAccountInfo(ctx context.Context) (*AccountInfo, erro
 	if err != nil {
 		return nil, err
 	}
-	body, key, iv, err := buildGatewayRequest(c.Config, auth)
+	publicKeys, err := gatewayPublicKeys(c.Config)
 	if err != nil {
 		return nil, err
 	}
@@ -58,6 +61,38 @@ func (c AccountClient) FetchAccountInfo(ctx context.Context) (*AccountInfo, erro
 	if httpClient == nil {
 		httpClient = &http.Client{Timeout: 30 * time.Second}
 	}
+
+	var lastErr error
+	for i, publicKey := range publicKeys {
+		info, err := c.fetchAccountInfoWithKey(ctx, httpClient, endpoint, auth, publicKey)
+		if err == nil {
+			return info, nil
+		}
+		lastErr = err
+		if !shouldTryNextGatewayKey(err) || i == len(publicKeys)-1 {
+			break
+		}
+	}
+	return nil, lastErr
+}
+
+func (c AccountClient) fetchAccountInfoWithKey(ctx context.Context, httpClient *http.Client, endpoint string, auth *PremiumAuth, publicKey *rsa.PublicKey) (*AccountInfo, error) {
+	body, key, iv, err := buildGatewayRequest(auth, publicKey)
+	if err != nil {
+		return nil, err
+	}
+	respBody, err := postGatewayRequest(ctx, httpClient, endpoint, body)
+	if err != nil {
+		return nil, err
+	}
+	plain, err := aesCBCDecrypt(respBody, key, iv[:aes.BlockSize])
+	if err != nil {
+		return nil, fmt.Errorf("decrypt gateway response: %w", err)
+	}
+	return ParseAccountInfo(plain)
+}
+
+func postGatewayRequest(ctx context.Context, httpClient *http.Client, endpoint string, body []byte) ([]byte, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
@@ -73,20 +108,40 @@ func (c AccountClient) FetchAccountInfo(ctx context.Context) (*AccountInfo, erro
 		return nil, err
 	}
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		return nil, fmt.Errorf("gateway returned HTTP %d", resp.StatusCode)
+		return nil, gatewayHTTPError{StatusCode: resp.StatusCode, Body: string(limitBytes(respBody, gatewayHTTPErrorBodyLimit))}
 	}
-	plain, err := aesCBCDecrypt(respBody, key, iv[:aes.BlockSize])
-	if err != nil {
-		return nil, fmt.Errorf("decrypt gateway response: %w", err)
-	}
-	return ParseAccountInfo(plain)
+	return respBody, nil
 }
 
-func buildGatewayRequest(cfg *Config, auth *PremiumAuth) ([]byte, []byte, []byte, error) {
-	pub, err := gatewayPublicKey(cfg)
-	if err != nil {
-		return nil, nil, nil, err
+type gatewayHTTPError struct {
+	StatusCode int
+	Body       string
+}
+
+func (e gatewayHTTPError) Error() string {
+	body := strings.TrimSpace(e.Body)
+	if body == "" {
+		return fmt.Sprintf("gateway returned HTTP %d", e.StatusCode)
 	}
+	return fmt.Sprintf("gateway returned HTTP %d: %s", e.StatusCode, body)
+}
+
+func shouldTryNextGatewayKey(err error) bool {
+	var httpErr gatewayHTTPError
+	if !errors.As(err, &httpErr) {
+		return false
+	}
+	return httpErr.StatusCode >= 500 && httpErr.StatusCode <= 599
+}
+
+func limitBytes(in []byte, limit int) []byte {
+	if len(in) <= limit {
+		return in
+	}
+	return append(in[:limit], []byte("...")...)
+}
+
+func buildGatewayRequest(auth *PremiumAuth, pub *rsa.PublicKey) ([]byte, []byte, []byte, error) {
 	key := make([]byte, 32)
 	iv := make([]byte, 32)
 	salt := make([]byte, 8)
@@ -136,7 +191,7 @@ func buildGatewayRequest(cfg *Config, auth *PremiumAuth) ([]byte, []byte, []byte
 	return requestBody, key, iv, err
 }
 
-func gatewayPublicKey(cfg *Config) (*rsa.PublicKey, error) {
+func gatewayPublicKeys(cfg *Config) ([]*rsa.PublicKey, error) {
 	key := ""
 	if cfg != nil {
 		key = strings.TrimSpace(cfg.Amnezia.GatewayPublicKey)
@@ -151,19 +206,42 @@ func gatewayPublicKey(cfg *Config) (*rsa.PublicKey, error) {
 	if key == "" {
 		return nil, fmt.Errorf("gateway public key is not configured")
 	}
-	block, _ := pem.Decode([]byte(key))
-	if block == nil {
-		return nil, fmt.Errorf("gateway public key is not PEM")
+	var keys []*rsa.PublicKey
+	rest := []byte(key)
+	for {
+		block, next := pem.Decode(rest)
+		if block == nil {
+			break
+		}
+		rest = next
+		if block.Type != "PUBLIC KEY" && block.Type != "RSA PUBLIC KEY" {
+			continue
+		}
+		parsed, err := parsePublicKeyBlock(block)
+		if err != nil {
+			return nil, err
+		}
+		keys = append(keys, parsed)
+	}
+	if len(keys) == 0 {
+		return nil, fmt.Errorf("gateway public key file does not contain a PEM public key")
+	}
+	return keys, nil
+}
+
+func parsePublicKeyBlock(block *pem.Block) (*rsa.PublicKey, error) {
+	if block.Type == "RSA PUBLIC KEY" {
+		return x509.ParsePKCS1PublicKey(block.Bytes)
 	}
 	parsed, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
 		return nil, err
 	}
-	pub, ok := parsed.(*rsa.PublicKey)
+	publicKey, ok := parsed.(*rsa.PublicKey)
 	if !ok {
 		return nil, fmt.Errorf("gateway public key is not RSA")
 	}
-	return pub, nil
+	return publicKey, nil
 }
 
 func aesCBCEncrypt(plain, key, iv []byte) ([]byte, error) {
