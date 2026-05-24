@@ -87,6 +87,38 @@ inside that directory. It is the easiest way to run locally without writing to `
 
 ## Gateway Public Key File
 
+### Extract from AmneziaVPN on macOS
+
+The Amnezia gateway public key is embedded in the official AmneziaVPN app. On macOS,
+extract public PEM blocks from the installed app with:
+
+```sh
+strings -a /Applications/AmneziaVPN.app/Contents/MacOS/AmneziaVPN \
+  | awk '/-----BEGIN PUBLIC KEY-----/{p=1} p{print} /-----END PUBLIC KEY-----/{p=0; print ""}' \
+  > gateway_public_key.pem
+```
+
+The app binary may contain more than one public key. Keep all extracted public-key
+PEM blocks in the file; the watcher tries them in order and uses the first one that
+works for the read-only `v1/account_info` request.
+
+The key file should look like this:
+
+```text
+-----BEGIN PUBLIC KEY-----
+...
+-----END PUBLIC KEY-----
+
+-----BEGIN PUBLIC KEY-----
+...
+-----END PUBLIC KEY-----
+```
+
+Keep this file local. It is a public key, but it is still an implementation detail
+from the Amnezia app and should not be committed.
+
+### Local path
+
 The default gateway public key path on Entware is:
 
 ```text
@@ -103,20 +135,9 @@ Create the file with mode `0600`:
 
 ```sh
 mkdir -p ./local-data
-cp gateway_public_key.pub ./local-data/gateway_public_key.pem
+cp gateway_public_key.pem ./local-data/gateway_public_key.pem
 chmod 600 ./local-data/gateway_public_key.pem
 ```
-
-The file should contain the normal PEM text:
-
-```text
------BEGIN PUBLIC KEY-----
-...
------END PUBLIC KEY-----
-```
-
-If you extracted more than one public key from the Amnezia app, you can put all PEM
-blocks in the same file. The watcher will try them in order for `v1/account_info`.
 
 Then run:
 
@@ -131,6 +152,18 @@ go run ./cmd/amnezia-config-watch check \
   --workdir ./local-data \
   --gateway-pk-filepath ./private/gateway_public_key.pem
 ```
+
+### Entware path
+
+On the router, install the key file at the default path:
+
+```sh
+mkdir -p /opt/etc/amnezia-config-watch
+cp gateway_public_key.pem /opt/etc/amnezia-config-watch/gateway_public_key.pem
+chmod 600 /opt/etc/amnezia-config-watch/gateway_public_key.pem
+```
+
+The init script can then run without an explicit `--gateway-pk-filepath` argument.
 
 ## Keenetic/Entware Usage
 
