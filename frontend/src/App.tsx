@@ -267,7 +267,7 @@ function Sidebar({ view, onView, fixture }: { view: View; onView: (view: View) =
         })}
       </nav>
       <div className="mt-auto hidden border-t p-3 md:block">
-        <Badge variant={fixture ? "outline" : "secondary"}>{fixture ? "fixture mode" : "live mode"}</Badge>
+        <Badge variant={fixture ? "warning" : "info"}>{fixture ? "fixture mode" : "live mode"}</Badge>
       </div>
     </aside>
   )
@@ -602,7 +602,7 @@ function CountryRows({ countries }: { countries: Array<{ code: string; status?: 
       {countries.map((country) => (
         <div key={country.code} className="contents">
           <span>{countryLabel(country.code)}</span>
-          <span className={cn("capitalize", statusTone(country.status) === "destructive" && "text-destructive")}>{titleStatus(country.status)}</span>
+          <Badge variant={statusTone(country.status) as never}>{titleStatus(country.status)}</Badge>
           <span className="text-muted-foreground">worker {formatDateTime(country.worker_last_updated)}</span>
           <span className="text-muted-foreground">downloaded {formatDateTime(country.last_downloaded)}</span>
         </div>
@@ -753,7 +753,7 @@ function SetupChecklist({ model }: { model: StatusPayload | null }) {
         {rows.map(([label, ok]) => (
           <div key={label} className="flex items-center justify-between gap-3">
             <span className="text-muted-foreground">{label}</span>
-            <Badge variant={ok ? "default" : "secondary"}>{ok ? "ready" : "needed"}</Badge>
+            <Badge variant={ok ? "success" : "warning"}>{ok ? "ready" : "needed"}</Badge>
           </div>
         ))}
       </div>
@@ -908,7 +908,7 @@ function CountryPicker({
               />
               <span>{countryFlag(country.code)} {country.code}</span>
               <span className="truncate text-muted-foreground">{country.name || ""}</span>
-              <Badge variant={issued.has(country.code) ? "default" : "outline"}>{issued.has(country.code) ? "in use" : "available"}</Badge>
+              <Badge variant={issued.has(country.code) ? "success" : "info"}>{issued.has(country.code) ? "in use" : "available"}</Badge>
             </label>
           )
         })}
