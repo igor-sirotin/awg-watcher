@@ -5,6 +5,7 @@ let model = null;
 let selectedKeyID = "";
 
 const summary = document.querySelector("#summary");
+const statusOverview = document.querySelector("#statusOverview");
 const fatalBanner = document.querySelector("#fatalBanner");
 const keysList = document.querySelector("#keysList");
 const keyForm = document.querySelector("#keyForm");
@@ -49,12 +50,41 @@ function render() {
   const st = model.state || {};
   const cfg = model.config || {};
   summary.textContent = `${titleStatus(st.status || "unknown")} · last ${formatTime(st.last_check)} · next ${formatTime(model.next_check)}${model.fixture ? " · fixture" : ""}`;
+  renderStatusOverview(st, cfg);
   renderFatal(st);
   renderSetup();
   renderKeys(cfg.keys || [], st.keys || {});
   renderSettings(cfg);
   if (keyDialog.open) renderKeyEditor(currentKey());
   if (keyDetailsDialog.open) renderKeyDetails(selectedKeyID);
+}
+
+function renderStatusOverview(st, cfg) {
+  const keyStates = st.keys || {};
+  const keys = cfg.keys || [];
+  const totalWatched = keys.reduce((sum, key) => sum + (key.countries || []).length, 0);
+  const changed = Object.values(keyStates).reduce((sum, keyState) => {
+    return sum + Object.values(keyState.countries || {}).filter(c => c.status === "changed" || c.status === "missing").length;
+  }, 0);
+  const errorKeys = Object.values(keyStates).filter(keyState => keyState.status === "api_error").length;
+  statusOverview.className = `status-overview ${st.status || "unknown"}`;
+  statusOverview.innerHTML = `
+    <div class="status-main">
+      <span class="status-dot"></span>
+      <div>
+        <div class="status-label">Overall status</div>
+        <strong>${titleStatus(st.status || "unknown")}</strong>
+      </div>
+    </div>
+    <div class="status-metrics">
+      ${metric("Keys", keys.length)}
+      ${metric("Watched countries", totalWatched)}
+      ${metric("Changed", changed)}
+      ${metric("API errors", errorKeys)}
+      ${metric("Last check", formatTime(st.last_check))}
+      ${metric("Next check", formatTime(model.next_check))}
+    </div>
+  `;
 }
 
 function renderFatal(st) {
