@@ -17,6 +17,8 @@ export function statusTone(status?: string) {
     case "missing":
     case "api_error":
       return "destructive"
+    case "baseline":
+      return "accent"
     default:
       return "secondary"
   }

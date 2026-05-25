@@ -311,16 +311,19 @@ function DashboardPage({
     <div className="space-y-4">
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader className="flex-row items-start gap-4 space-y-0">
-            <StatusIcon status={stats.status} />
-            <div className="min-w-0">
-              <CardTitle>Status</CardTitle>
-              <CardDescription className="capitalize">{titleStatus(stats.status)}</CardDescription>
+          <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
+            <div className="flex items-start gap-4">
+              <StatusIcon status={stats.status} />
+              <div className="min-w-0">
+                <CardTitle>Status</CardTitle>
+                <CardDescription className="capitalize">{titleStatus(stats.status)}</CardDescription>
+              </div>
+            </div>
+            <div className="shrink-0 text-right text-sm text-muted-foreground">
+              <div>{stats.changed} changed country configs</div>
+              <div>{stats.apiErrors} API errors</div>
             </div>
           </CardHeader>
-          <CardContent className="text-sm text-muted-foreground">
-            {stats.changed} changed country configs. {stats.apiErrors} API errors.
-          </CardContent>
         </Card>
         <Card>
           <CardHeader>
@@ -359,7 +362,8 @@ function dashboardStats(model: StatusPayload | null) {
 type DashboardCountryRow = {
   keyID: string
   keyName: string
-  country: string
+  countryCode?: string
+  countryName?: string
   workerLastUpdated?: string
   lastDownloaded?: string
   status?: string
@@ -374,7 +378,8 @@ function dashboardCountryRows(model: StatusPayload | null): DashboardCountryRow[
       return stateCountries.map((country) => ({
         keyID: key.id,
         keyName: key.name || "Key",
-        country: `${countryLabel(country.code)} ${country.name || ""}`.trim(),
+        countryCode: country.code,
+        countryName: country.name,
         workerLastUpdated: country.worker_last_updated,
         lastDownloaded: country.last_downloaded,
         status: country.status || "unknown",
@@ -385,14 +390,13 @@ function dashboardCountryRows(model: StatusPayload | null): DashboardCountryRow[
       return watched.map((code) => ({
         keyID: key.id,
         keyName: key.name || "Key",
-        country: countryLabel(code),
+        countryCode: code,
         status: "unknown",
       }))
     }
     return [{
       keyID: key.id,
       keyName: key.name || "Key",
-      country: "No countries tracked",
       status: states[key.id]?.status || "unknown",
     }]
   })
@@ -415,7 +419,7 @@ function DashboardCountryTable({ rows }: { rows: DashboardCountryRow[] }) {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Key</TableHead>
+              <TableHead className="w-16"></TableHead>
               <TableHead>Country</TableHead>
               <TableHead>Worker updated</TableHead>
               <TableHead>Downloaded</TableHead>
@@ -424,13 +428,18 @@ function DashboardCountryTable({ rows }: { rows: DashboardCountryRow[] }) {
           </TableHeader>
           <TableBody>
             {rows.map((row) => (
-              <TableRow key={`${row.keyID}-${row.country}`}>
-                <TableCell className="font-medium">{row.keyName}</TableCell>
-                <TableCell>{row.country}</TableCell>
+              <TableRow key={`${row.keyID}-${row.countryCode || "none"}`}>
+                <TableCell className="py-3 text-4xl leading-none">{row.countryCode ? countryFlag(row.countryCode) : ""}</TableCell>
+                <TableCell className="py-3">
+                  <div className="font-medium">
+                    {row.countryCode ? `${row.countryCode}${row.countryName ? ` ${row.countryName}` : ""}` : "No countries tracked"}
+                  </div>
+                  <div className="text-sm text-muted-foreground">{row.keyName}</div>
+                </TableCell>
                 <TableCell className="text-muted-foreground">{formatDateTime(row.workerLastUpdated)}</TableCell>
                 <TableCell className="text-muted-foreground">{formatDateTime(row.lastDownloaded)}</TableCell>
                 <TableCell className="text-right">
-                  <Badge className="inline-flex w-auto" variant={statusTone(row.status) as never}>
+                  <Badge className="inline-flex w-auto whitespace-nowrap" variant={statusTone(row.status) as never}>
                     {titleStatus(row.status)}
                   </Badge>
                 </TableCell>
