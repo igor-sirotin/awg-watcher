@@ -37,6 +37,7 @@ import {
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Textarea } from "@/components/ui/textarea"
 
 const emptyConfig: Config = { keys: [], poll_interval_hours: 6 }
@@ -194,14 +195,6 @@ export default function App() {
           {view === "dashboard" ? (
             <DashboardPage
               model={model}
-              onKeys={() => setView("keys")}
-              onTools={() => setView("tools")}
-              onAddKey={() => openNewKey(setEditingKey, setKeyEditorOpen)}
-              onDetails={(id) => setDetailsKeyID(id)}
-              onEdit={(key) => {
-                setEditingKey(key)
-                setKeyEditorOpen(true)
-              }}
             />
           ) : null}
           {view === "keys" ? (
@@ -308,54 +301,25 @@ function Sidebar({
 
 function DashboardPage({
   model,
-  onKeys,
-  onTools,
-  onAddKey,
-  onDetails,
-  onEdit,
 }: {
   model: StatusPayload | null
-  onKeys: () => void
-  onTools: () => void
-  onAddKey: () => void
-  onDetails: (id: string) => void
-  onEdit: (key: KeyConfig) => void
 }) {
-  const keys = model?.config?.keys || []
-  const keyStates = model?.state?.keys || {}
-  const changedKeys = Object.values(keyStates).filter((key) => key.status === "changed" || key.status === "api_error")
-  const watched = keys.reduce((sum, key) => sum + (key.countries || []).length, 0)
+  const stats = dashboardStats(model)
+  const rows = dashboardCountryRows(model)
 
   return (
     <div className="space-y-4">
-      <StatusOverview model={model} />
-      <div className="grid gap-4 lg:grid-cols-3">
+      <div className="grid gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader>
-            <CardTitle>Keys</CardTitle>
-            <CardDescription>{keys.length} configured, {watched} watched countries</CardDescription>
+          <CardHeader className="flex-row items-start gap-4 space-y-0">
+            <StatusIcon status={stats.status} />
+            <div className="min-w-0">
+              <CardTitle>Status</CardTitle>
+              <CardDescription className="capitalize">{titleStatus(stats.status)}</CardDescription>
+            </div>
           </CardHeader>
-          <CardContent className="flex gap-2">
-            <Button onClick={onKeys} variant="secondary">
-              <KeyRound />
-              Open keys
-            </Button>
-            <Button onClick={onAddKey} variant="outline">
-              <Plus />
-              Add key
-            </Button>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Events</CardTitle>
-            <CardDescription>{changedKeys.length ? `${changedKeys.length} key needs attention` : "No key needs attention"}</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <Button onClick={onTools} variant="secondary">
-              <SlidersHorizontal />
-              Open tools
-            </Button>
+          <CardContent className="text-sm text-muted-foreground">
+            {stats.changed} changed country configs. {stats.apiErrors} API errors.
           </CardContent>
         </Card>
         <Card>
@@ -370,12 +334,112 @@ function DashboardPage({
       </div>
       <section className="space-y-3">
         <div>
-          <h2 className="text-lg font-semibold tracking-normal">Recent key status</h2>
-          <p className="text-sm text-muted-foreground">The dashboard shows the same live status data as the keys page.</p>
+          <h2 className="text-lg font-semibold tracking-normal">Keys</h2>
+          <p className="text-sm text-muted-foreground">Country-level status across all configured keys.</p>
         </div>
-        <KeyList model={model} onDetails={onDetails} onEdit={onEdit} />
+        <DashboardCountryTable rows={rows} />
       </section>
     </div>
+  )
+}
+
+function dashboardStats(model: StatusPayload | null) {
+  const keyStates = model?.state?.keys || {}
+  const changed = Object.values(keyStates).reduce(
+    (sum, keyState) => sum + Object.values(keyState.countries || {}).filter((country) => country.status === "changed" || country.status === "missing").length,
+    0,
+  )
+  return {
+    status: model?.state?.status || "unknown",
+    changed,
+    apiErrors: Object.values(keyStates).filter((keyState) => keyState.status === "api_error").length,
+  }
+}
+
+type DashboardCountryRow = {
+  keyID: string
+  keyName: string
+  country: string
+  workerLastUpdated?: string
+  lastDownloaded?: string
+  status?: string
+}
+
+function dashboardCountryRows(model: StatusPayload | null): DashboardCountryRow[] {
+  const keys = model?.config?.keys || []
+  const states = model?.state?.keys || {}
+  return keys.flatMap((key) => {
+    const stateCountries = Object.values(states[key.id]?.countries || {}).sort((a, b) => a.code.localeCompare(b.code))
+    if (stateCountries.length) {
+      return stateCountries.map((country) => ({
+        keyID: key.id,
+        keyName: key.name || "Key",
+        country: `${countryLabel(country.code)} ${country.name || ""}`.trim(),
+        workerLastUpdated: country.worker_last_updated,
+        lastDownloaded: country.last_downloaded,
+        status: country.status || "unknown",
+      }))
+    }
+    const watched = key.countries || []
+    if (watched.length) {
+      return watched.map((code) => ({
+        keyID: key.id,
+        keyName: key.name || "Key",
+        country: countryLabel(code),
+        status: "unknown",
+      }))
+    }
+    return [{
+      keyID: key.id,
+      keyName: key.name || "Key",
+      country: "No countries tracked",
+      status: states[key.id]?.status || "unknown",
+    }]
+  })
+}
+
+function DashboardCountryTable({ rows }: { rows: DashboardCountryRow[] }) {
+  if (!rows.length) {
+    return (
+      <Card>
+        <CardContent className="flex min-h-36 items-center justify-center p-5 text-center text-sm text-muted-foreground">
+          Add an AmneziaVPN key to start tracking countries.
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardContent className="p-0">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Key</TableHead>
+              <TableHead>Country</TableHead>
+              <TableHead>Worker updated</TableHead>
+              <TableHead>Downloaded</TableHead>
+              <TableHead className="text-right">Status</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row) => (
+              <TableRow key={`${row.keyID}-${row.country}`}>
+                <TableCell className="font-medium">{row.keyName}</TableCell>
+                <TableCell>{row.country}</TableCell>
+                <TableCell className="text-muted-foreground">{formatDateTime(row.workerLastUpdated)}</TableCell>
+                <TableCell className="text-muted-foreground">{formatDateTime(row.lastDownloaded)}</TableCell>
+                <TableCell className="text-right">
+                  <Badge className="inline-flex w-auto" variant={statusTone(row.status) as never}>
+                    {titleStatus(row.status)}
+                  </Badge>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -439,54 +503,18 @@ function ToolsPage({ output, setOutput }: { output: string; setOutput: (output: 
   )
 }
 
-function StatusOverview({ model }: { model: StatusPayload | null }) {
-  const cfg = model?.config || emptyConfig
-  const st = model?.state || {}
-  const keys = cfg.keys || []
-  const keyStates = st.keys || {}
-  const watched = keys.reduce((sum, key) => sum + (key.countries || []).length, 0)
-  const changed = Object.values(keyStates).reduce(
-    (sum, keyState) => sum + Object.values(keyState.countries || {}).filter((country) => country.status === "changed" || country.status === "missing").length,
-    0,
-  )
-  const apiErrors = Object.values(keyStates).filter((keyState) => keyState.status === "api_error").length
-  const status = st.status || "unknown"
-
-  return (
-    <Card>
-      <CardContent className="grid gap-4 p-4 md:grid-cols-[minmax(220px,0.7fr)_1fr]">
-        <div className="flex items-center gap-4">
-          <StatusIcon status={status} />
-          <div>
-            <div className="text-xs font-medium uppercase text-muted-foreground">Overall status</div>
-            <div className="text-2xl font-semibold capitalize leading-tight">{titleStatus(status)}</div>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-6">
-          <Metric label="Keys" value={model ? keys.length : "loading"} tone="accent" />
-          <Metric label="Watched" value={watched} tone="accent" />
-          <Metric label="Changed" value={changed} tone={changed > 0 ? "destructive" : undefined} />
-          <Metric label="API errors" value={apiErrors} tone={apiErrors > 0 ? "destructive" : undefined} />
-          <Metric label="Last check" value={formatDateTime(st.last_check)} />
-          <Metric label="Next check" value={formatDateTime(model?.next_check)} />
-        </div>
-      </CardContent>
-    </Card>
-  )
-}
-
 function StatusIcon({ status }: { status?: string }) {
   const Icon = status === "ok" ? Check : status === "api_error" || status === "changed" ? AlertTriangle : CircleDashed
   return (
-    <div
-      className={cn(
-        "flex size-12 items-center justify-center rounded-lg",
-        status === "ok" && "bg-primary text-primary-foreground",
-        (status === "api_error" || status === "changed") && "bg-destructive text-destructive-foreground",
-        status !== "ok" && status !== "api_error" && status !== "changed" && "bg-secondary text-secondary-foreground",
-      )}
-    >
-      <Icon className="size-5" />
+    <div className="flex size-12 items-center justify-center rounded-lg bg-muted">
+      <Icon
+        className={cn(
+          "size-5",
+          status === "ok" && "text-primary",
+          (status === "api_error" || status === "changed") && "text-destructive",
+          status !== "ok" && status !== "api_error" && status !== "changed" && "text-muted-foreground",
+        )}
+      />
     </div>
   )
 }
