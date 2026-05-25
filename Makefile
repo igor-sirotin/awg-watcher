@@ -4,13 +4,28 @@ OPKG_ARCH := mipsel-3.4
 ENTWARE_FEED := mipselsf-k3.4
 OPKG_FEED_DIR := dist/opkg/$(ENTWARE_FEED)
 
-.PHONY: test frontend-build build build-linux build-entware-mipsel package-opkg opkg-feed clean
+.PHONY: test lint backend-lint backend-build frontend-test frontend-lint frontend-build build build-linux build-entware-mipsel package-opkg opkg-feed clean
 
 test:
-	go test ./...
+	go test ./cmd/... ./internal/...
+
+lint: backend-lint
+
+backend-lint:
+	test -z "$$(gofmt -l $$(find . -path ./frontend -prune -o -path ./.git -prune -o -name '*.go' -print))"
+	go vet ./cmd/... ./internal/...
+
+backend-build:
+	go build -ldflags "-s -w -X main.version=$(VERSION)" -o bin/$(APP) ./cmd/awg-watcher
 
 frontend/node_modules/.package-lock.json: frontend/package.json frontend/package-lock.json
 	cd frontend && npm ci
+
+frontend-test: frontend/node_modules/.package-lock.json
+	cd frontend && npm test
+
+frontend-lint: frontend/node_modules/.package-lock.json
+	cd frontend && npm run lint
 
 frontend-build: frontend/node_modules/.package-lock.json
 	cd frontend && npm run build
