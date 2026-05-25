@@ -21,7 +21,7 @@ import {
 } from "lucide-react"
 
 import { api, getStatus, hasSetupToken, stripSetupTokenAndReload, setupTokenQuery } from "@/lib/api"
-import { countryFlag, countryLabel, formatDate, formatDateTime, jsonBlock, statusBadgeClass, titleStatus } from "@/lib/app-utils"
+import { countryFlag, countryLabel, formatDate, formatDateTime, jsonBlock, statusBadgeVariant, titleStatus } from "@/lib/app-utils"
 import { cn } from "@/lib/utils"
 import type { Config, KeyConfig, KeyState, SettingsPatch, SettingsResponse, StatusPayload } from "@/types/api"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
@@ -440,7 +440,7 @@ function DashboardCountryTable({ rows }: { rows: DashboardCountryRow[] }) {
                 <TableCell className="text-muted-foreground">{formatDateTime(row.workerLastUpdated)}</TableCell>
                 <TableCell className="text-muted-foreground">{formatDateTime(row.lastDownloaded)}</TableCell>
                 <TableCell className="text-right">
-                  <Badge className={cn("inline-flex w-auto whitespace-nowrap", statusBadgeClass(row.status))} variant="outline">
+                  <Badge className="inline-flex w-auto whitespace-nowrap" variant={statusBadgeVariant(row.status)}>
                     {titleStatus(row.status)}
                   </Badge>
                 </TableCell>
@@ -619,7 +619,7 @@ function KeyCard({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="truncate text-base font-semibold tracking-normal">{keyConfig.name || "Key"}</h3>
-              <Badge className={statusBadgeClass(state?.status)} variant="outline">
+              <Badge variant={statusBadgeVariant(state?.status)}>
                 {titleStatus(state?.status)}
               </Badge>
               {changedCount > 0 ? <Badge variant="destructive">{changedCount} changed</Badge> : null}
@@ -659,7 +659,7 @@ function CountryRows({ countries }: { countries: Array<{ code: string; status?: 
       {countries.map((country) => (
         <div key={country.code} className="contents">
           <span>{countryLabel(country.code)}</span>
-          <Badge className={statusBadgeClass(country.status)} variant="outline">
+          <Badge variant={statusBadgeVariant(country.status)}>
             {titleStatus(country.status)}
           </Badge>
           <span className="text-muted-foreground">worker {formatDateTime(country.worker_last_updated)}</span>
