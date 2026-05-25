@@ -33,6 +33,11 @@ size_bytes() {
 	wc -c < "$file" | tr -d ' '
 }
 
+package_control() {
+	package=$1
+	tar -xOf "$package" ./control.tar.gz | tar -xzOf - ./control
+}
+
 : > "$packages_file"
 
 found=0
@@ -42,7 +47,7 @@ for package in "$feed_dir"/*.ipk; do
 	fi
 	found=1
 	filename=$(basename "$package")
-	control=$(ar p "$package" control.tar.gz | tar -xzOf - ./control)
+	control=$(package_control "$package")
 	{
 		printf '%s\n' "$control"
 		printf 'Filename: %s\n' "$filename"

@@ -28,6 +28,7 @@ trap 'rm -rf "$tmpdir"' EXIT INT TERM
 
 control_dir=$tmpdir/control
 data_dir=$tmpdir/data
+tar_owner_flags="--uid 0 --gid 0 --uname root --gname root"
 mkdir -p "$control_dir" "$data_dir/opt/bin" "$data_dir/opt/etc/init.d"
 
 install -m 0755 "$binary" "$data_dir/opt/bin/$app"
@@ -70,8 +71,8 @@ output_dir=$(cd "$output_dir" && pwd)
 package_file=$output_dir/${app}_${version}_${arch}.ipk
 
 printf '2.0\n' > "$tmpdir/debian-binary"
-(cd "$control_dir" && tar -czf "$tmpdir/control.tar.gz" .)
-(cd "$data_dir" && tar -czf "$tmpdir/data.tar.gz" .)
-(cd "$tmpdir" && ar r "$package_file" debian-binary control.tar.gz data.tar.gz >/dev/null)
+(cd "$control_dir" && tar $tar_owner_flags -czf "$tmpdir/control.tar.gz" .)
+(cd "$data_dir" && tar $tar_owner_flags -czf "$tmpdir/data.tar.gz" .)
+(cd "$tmpdir" && tar $tar_owner_flags -czf "$package_file" ./debian-binary ./control.tar.gz ./data.tar.gz)
 
 echo "$package_file"

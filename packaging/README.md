@@ -36,3 +36,12 @@ It contains:
 The package creates `/opt/etc/awg-watcher` and `/opt/var/lib/awg-watcher`
 during installation, but it does not package local config, state, or gateway key
 files.
+
+Entware `.ipk` files are gzip-compressed tar archives containing
+`debian-binary`, `control.tar.gz`, and `data.tar.gz`. Inspect a local build with:
+
+```sh
+tar -tzf dist/opkg/mipselsf-k3.4/awg-watcher_0.1.0_mipsel-3.4.ipk
+tar -xOf dist/opkg/mipselsf-k3.4/awg-watcher_0.1.0_mipsel-3.4.ipk ./control.tar.gz | tar -tzf -
+tar -xOf dist/opkg/mipselsf-k3.4/awg-watcher_0.1.0_mipsel-3.4.ipk ./data.tar.gz | tar -tzf -
+```
