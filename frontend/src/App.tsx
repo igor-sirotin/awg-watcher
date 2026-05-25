@@ -21,7 +21,8 @@ import {
 } from "lucide-react"
 
 import { api, getStatus, hasSetupToken, stripSetupTokenAndReload, setupTokenQuery } from "@/lib/api"
-import { cn, countryFlag, countryLabel, formatDate, formatDateTime, jsonBlock, statusBadgeClass, titleStatus } from "@/lib/utils"
+import { countryFlag, countryLabel, formatDate, formatDateTime, jsonBlock, statusBadgeClass, titleStatus } from "@/lib/app-utils"
+import { cn } from "@/lib/utils"
 import type { Config, KeyConfig, KeyState, SettingsPatch, SettingsResponse, StatusPayload } from "@/types/api"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
