@@ -168,14 +168,14 @@ func buildGatewayRequest(auth *PremiumAuth, pub *rsa.PublicKey) ([]byte, []byte,
 	}
 	apiPayload, err := json.Marshal(map[string]any{
 		"os_version":        runtime.GOOS,
-		"app_version":       "amnezia-config-watch",
+		"app_version":       "awg-watcher",
 		"app_language":      "en",
-		"installation_uuid": "amnezia-config-watch",
+		"installation_uuid": "awg-watcher",
 		"user_country_code": auth.UserCountryCode,
 		"service_type":      auth.ServiceType,
 		"service_protocol":  auth.ServiceProtocol,
 		"auth_data":         auth.AuthData,
-		"cli_version":       "amnezia-config-watch",
+		"cli_version":       "awg-watcher",
 	})
 	if err != nil {
 		return nil, nil, nil, err

@@ -102,7 +102,7 @@ func (a *App) authMiddleware(next http.Handler) http.Handler {
 
 		_, pass, ok := r.BasicAuth()
 		if !ok || bcrypt.CompareHashAndPassword([]byte(hash), []byte(pass)) != nil {
-			w.Header().Set("WWW-Authenticate", `Basic realm="amnezia-config-watch"`)
+			w.Header().Set("WWW-Authenticate", `Basic realm="awg-watcher"`)
 			writeError(w, http.StatusUnauthorized, "authentication required")
 			return
 		}
@@ -235,7 +235,7 @@ func (a *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 		go func() {
 			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 			defer cancel()
-			_ = SendTelegram(ctx, cfg.Telegram, "Amnezia Config Watcher setup completed")
+			_ = SendTelegram(ctx, cfg.Telegram, "AWG Watcher setup completed")
 		}()
 	}
 	writeJSON(w, map[string]any{
@@ -330,7 +330,7 @@ func (a *App) handleTelegramTest(w http.ResponseWriter, r *http.Request) {
 	a.mu.Unlock()
 	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 	defer cancel()
-	if err := SendTelegram(ctx, cfg, "Amnezia Config Watcher test notification"); err != nil {
+	if err := SendTelegram(ctx, cfg, "AWG Watcher test notification"); err != nil {
 		writeError(w, http.StatusBadGateway, err.Error())
 		return
 	}
@@ -346,7 +346,7 @@ func (a *App) handleDiagnostics(w http.ResponseWriter, r *http.Request) {
 	cfg := *a.cfg
 	a.mu.Unlock()
 	st, _ := LoadState(a.paths.StatePath)
-	w.Header().Set("Content-Disposition", `attachment; filename="amnezia-config-watch-diagnostics.json"`)
+	w.Header().Set("Content-Disposition", `attachment; filename="awg-watcher-diagnostics.json"`)
 	writeJSON(w, map[string]any{
 		"config":  RedactValue(cfg),
 		"state":   st,

@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/sirotin/amnezia-config-watcher/internal/watch"
+	"github.com/igor-sirotin/awg-watcher/internal/watch"
 )
 
 var version = "dev"
@@ -44,7 +44,7 @@ func main() {
 }
 
 func usage() {
-	fmt.Fprintf(os.Stderr, `amnezia-config-watch %s
+	fmt.Fprintf(os.Stderr, `awg-watcher %s
 
 Commands:
   serve        run the local web app and scheduler
@@ -185,7 +185,7 @@ func runNotifyTest(args []string) {
 	applyGatewayPublicKeyPath(cfg, paths, flagWasSet(fs, "gateway-pk-filepath"))
 	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
 	defer cancel()
-	if err := watch.SendTelegram(ctx, cfg.Telegram, "Amnezia Config Watcher test notification"); err != nil {
+	if err := watch.SendTelegram(ctx, cfg.Telegram, "AWG Watcher test notification"); err != nil {
 		fatal(err)
 	}
 	fmt.Println("ok")

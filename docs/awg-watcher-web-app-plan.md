@@ -1,4 +1,4 @@
-# Amnezia Config Watcher Web App Plan
+# AWG Watcher Web App Plan
 
 This document records the implementation plan and discovered technical details for a v1 Keenetic/Entware web app that detects Amnezia Premium configuration changes.
 
@@ -17,7 +17,7 @@ V1 is detection and notification only. It must not replace AWG-Manager tunnel co
 
 ## Target Deployment
 
-- Router: Keenetic Hopper / Netcraze KN-3810.
+- Router: Keenetic device with Entware support.
 - Runtime: Entware on Keenetic.
 - Packaging: OPKG package.
 - Implementation: single Go binary with embedded HTML/CSS/JS.
@@ -26,7 +26,7 @@ V1 is detection and notification only. It must not replace AWG-Manager tunnel co
 - Recommended access during testing:
 
 ```sh
-ssh -L 8097:127.0.0.1:8097 keenetic
+ssh -L 8097:127.0.0.1:8097 root@router.example
 ```
 
 Then open:
@@ -75,13 +75,13 @@ Diagnostics must redact:
 Config file:
 
 ```text
-/opt/etc/amnezia-config-watch/config.json
+/opt/etc/awg-watcher/config.json
 ```
 
 State file:
 
 ```text
-/opt/var/lib/amnezia-config-watch/state.json
+/opt/var/lib/awg-watcher/state.json
 ```
 
 Security requirements:
@@ -115,11 +115,7 @@ Example v1 config shape:
 
 ### `vpn://` Encoding
 
-There is already a local decoder in:
-
-```text
-keenetic/scripts/decode_amneziavpn_key.py
-```
+The initial implementation can use a local decoder script as a reference.
 
 The observed format:
 
@@ -346,28 +342,28 @@ Implementation should support a fake Telegram HTTP server for tests.
 
 Package should install:
 
-- binary: `/opt/bin/amnezia-config-watch`
-- init script: `/opt/etc/init.d/S??amnezia-config-watch`
-- config directory: `/opt/etc/amnezia-config-watch`
-- state directory: `/opt/var/lib/amnezia-config-watch`
+- binary: `/opt/bin/awg-watcher`
+- init script: `/opt/etc/init.d/S??awg-watcher`
+- config directory: `/opt/etc/awg-watcher`
+- state directory: `/opt/var/lib/awg-watcher`
 - optional cron helper or documented cron line
 
 The init script should support:
 
 ```sh
-/opt/etc/init.d/S??amnezia-config-watch start
-/opt/etc/init.d/S??amnezia-config-watch stop
-/opt/etc/init.d/S??amnezia-config-watch restart
+/opt/etc/init.d/S??awg-watcher start
+/opt/etc/init.d/S??awg-watcher stop
+/opt/etc/init.d/S??awg-watcher restart
 ```
 
 The binary should also support CLI utilities:
 
 ```sh
-amnezia-config-watch serve
-amnezia-config-watch check
-amnezia-config-watch decode
-amnezia-config-watch notify-test
-amnezia-config-watch status
+awg-watcher serve
+awg-watcher check
+awg-watcher decode
+awg-watcher notify-test
+awg-watcher status
 ```
 
 ## Safe Testing Plan
@@ -388,7 +384,7 @@ Test:
 
 ### Stage 2: Local Fixture Web App
 
-Run on Mac/home server with fixture `account_info` JSON.
+Run on a development workstation with fixture `account_info` JSON.
 
 Expected:
 
@@ -436,7 +432,7 @@ Keep bind local-only:
 Access via SSH tunnel:
 
 ```sh
-ssh -L 8097:127.0.0.1:8097 keenetic
+ssh -L 8097:127.0.0.1:8097 root@router.example
 ```
 
 Verify:
@@ -492,4 +488,3 @@ Enable automatic AWG replacement only after repeated successful manual runs and 
 - Verify encrypted `v1/account_info` against a real `vpn://` key.
 - Decide OPKG build workflow for local development vs router build target.
 - Decide whether web authentication uses generated setup token, password set during first run, or both.
-

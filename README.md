@@ -1,4 +1,4 @@
-# Amnezia Config Watcher
+# AWG Watcher
 
 Local Keenetic/Entware web app that watches Amnezia Premium country config metadata and sends Telegram notifications when it changes. V1 is read-only: it calls only `v1/account_info` and does not modify AWG-Manager or router tunnel configs.
 
@@ -17,7 +17,7 @@ Implemented:
 - country metadata diffing for `worker_last_updated` and `last_downloaded`
 - Telegram notifications and test notification
 - redacted diagnostics export
-- Entware init-script scaffold
+- OPKG package/feed scaffold for Keenetic/Entware
 
 The production Amnezia gateway public key is not committed. To run live gateway calls, put it in a local PEM file and pass `--gateway-pk-filepath`, or use the default key-file path described below.
 
@@ -31,7 +31,7 @@ make build
 The binary is written to:
 
 ```text
-bin/amnezia-config-watch
+bin/awg-watcher
 ```
 
 `make build` runs the frontend build first and then compiles Go. For frontend-only
@@ -47,18 +47,18 @@ The development server serves only the UI source. Run the Go server separately f
 the API:
 
 ```sh
-go run ./cmd/amnezia-config-watch serve --workdir ./local-data
+go run ./cmd/awg-watcher serve --workdir ./local-data
 ```
 
-For releases, use `make build` or `make build-linux` so the current frontend is
-embedded into the binary.
+For releases, use `make opkg-feed VERSION=...` so the current frontend is embedded
+into the Entware binary and packaged as an `.ipk`.
 
 ## Offline Local Run
 
 Fixture mode does not call Amnezia or Telegram unless you press the Telegram test button.
 
 ```sh
-go run ./cmd/amnezia-config-watch serve \
+go run ./cmd/awg-watcher serve \
   --workdir ./local-data \
   --fixture-account-info ./testdata/account_info_baseline.json
 ```
@@ -84,7 +84,7 @@ For a new key, save the key first. The UI runs a check, loads available countrie
 To simulate a change, restart with:
 
 ```sh
-go run ./cmd/amnezia-config-watch serve \
+go run ./cmd/awg-watcher serve \
   --workdir ./local-data \
   --fixture-account-info ./testdata/account_info_changed.json
 ```
@@ -94,11 +94,11 @@ Click `Check now` again; Estonia should report changed metadata.
 ## CLI
 
 ```sh
-amnezia-config-watch serve
-amnezia-config-watch check
-amnezia-config-watch decode < key.txt
-amnezia-config-watch notify-test
-amnezia-config-watch status
+awg-watcher serve
+awg-watcher check
+awg-watcher decode < key.txt
+awg-watcher notify-test
+awg-watcher status
 ```
 
 Useful local flags:
@@ -153,7 +153,7 @@ from the Amnezia app and should not be committed.
 The default gateway public key path on Entware is:
 
 ```text
-/opt/etc/amnezia-config-watch/gateway_public_key.pem
+/opt/etc/awg-watcher/gateway_public_key.pem
 ```
 
 When running locally with `--workdir ./local-data`, the default becomes:
@@ -173,13 +173,13 @@ chmod 600 ./local-data/gateway_public_key.pem
 Then run:
 
 ```sh
-go run ./cmd/amnezia-config-watch serve --workdir ./local-data
+go run ./cmd/awg-watcher serve --workdir ./local-data
 ```
 
 To use a different key file:
 
 ```sh
-go run ./cmd/amnezia-config-watch check \
+go run ./cmd/awg-watcher check \
   --workdir ./local-data \
   --gateway-pk-filepath ./private/gateway_public_key.pem
 ```
@@ -189,9 +189,9 @@ go run ./cmd/amnezia-config-watch check \
 On the router, install the key file at the default path:
 
 ```sh
-mkdir -p /opt/etc/amnezia-config-watch
-cp gateway_public_key.pem /opt/etc/amnezia-config-watch/gateway_public_key.pem
-chmod 600 /opt/etc/amnezia-config-watch/gateway_public_key.pem
+mkdir -p /opt/etc/awg-watcher
+cp gateway_public_key.pem /opt/etc/awg-watcher/gateway_public_key.pem
+chmod 600 /opt/etc/awg-watcher/gateway_public_key.pem
 ```
 
 The init script can then run without an explicit `--gateway-pk-filepath` argument.
@@ -201,8 +201,8 @@ The init script can then run without an explicit `--gateway-pk-filepath` argumen
 Default paths:
 
 ```text
-/opt/etc/amnezia-config-watch/config.json
-/opt/var/lib/amnezia-config-watch/state.json
+/opt/etc/awg-watcher/config.json
+/opt/var/lib/awg-watcher/state.json
 ```
 
 Default listener:
@@ -214,7 +214,7 @@ Default listener:
 Recommended access from your workstation:
 
 ```sh
-ssh -L 8097:127.0.0.1:8097 keenetic
+ssh -L 8097:127.0.0.1:8097 root@router.example
 ```
 
 Then open:
@@ -223,21 +223,60 @@ Then open:
 http://127.0.0.1:8097/
 ```
 
-Build for a common Keenetic/Entware MIPS little-endian target:
+Publish the hosted OPKG feed:
+
+1. Commit and push the workflow and packaging files to the default branch.
+2. In GitHub, open `Settings` -> `Pages` and set the source to `GitHub Actions`.
+3. Create and push a version tag:
 
 ```sh
-make build-linux
+git tag v0.1.0
+git push origin v0.1.0
 ```
 
-Install manually until a complete OPKG recipe is added:
+The `OPKG Release` workflow builds the package, attaches the `.ipk` to the GitHub
+release, and deploys the feed to GitHub Pages. After it succeeds, verify:
+
+```text
+https://igor-sirotin.github.io/awg-watcher/opkg/mipselsf-k3.4/
+https://igor-sirotin.github.io/awg-watcher/opkg/mipselsf-k3.4/Packages.gz
+```
+
+You can also publish without creating a tag by running `OPKG Release` manually
+from the GitHub Actions tab and entering a version. Manual runs update GitHub
+Pages but do not create a GitHub release.
+
+Install from the hosted OPKG feed after the workflow has deployed:
 
 ```sh
-install -m 0755 bin/amnezia-config-watch-mipsle /opt/bin/amnezia-config-watch
-install -m 0755 packaging/entware/S97amnezia-config-watch /opt/etc/init.d/S97amnezia-config-watch
-mkdir -p /opt/etc/amnezia-config-watch /opt/var/lib/amnezia-config-watch
-chmod 700 /opt/etc/amnezia-config-watch /opt/var/lib/amnezia-config-watch
-/opt/etc/init.d/S97amnezia-config-watch start
+echo 'src/gz awg-watcher https://igor-sirotin.github.io/awg-watcher/opkg/mipselsf-k3.4' > /opt/etc/opkg/awg-watcher.conf
+opkg update
+opkg install awg-watcher
+/opt/etc/init.d/S97awg-watcher start
 ```
+
+Upgrade later with:
+
+```sh
+opkg update
+opkg upgrade awg-watcher
+```
+
+Build a local package and OPKG feed:
+
+```sh
+make opkg-feed VERSION=0.1.0
+```
+
+The generated files are written to:
+
+```text
+dist/opkg/mipselsf-k3.4/
+```
+
+The package installs the binary and init script, then creates the config and
+state directories if they do not already exist. It does not include or overwrite
+local config, state, or gateway key files.
 
 ## Live Amnezia Account Check
 

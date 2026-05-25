@@ -113,7 +113,7 @@ func NotificationText(result CheckResult) string {
 	if len(result.Messages) == 0 {
 		return ""
 	}
-	return "Amnezia Config Watcher:\n" + strings.Join(result.Messages, "\n")
+	return "AWG Watcher:\n" + strings.Join(result.Messages, "\n")
 }
 
 func keyStateMessages(st KeyState) []string {
@@ -211,7 +211,7 @@ func (a *App) Check(ctx context.Context, notify bool) (*CheckResult, error) {
 				firstErr = err
 			}
 			if notify && keyState.ErrorCount >= 3 {
-				_ = SendTelegram(ctx, cfg.Telegram, fmt.Sprintf("Amnezia Config Watcher: %s repeated API failures (%d): %s", key.Name, keyState.ErrorCount, err))
+				_ = SendTelegram(ctx, cfg.Telegram, fmt.Sprintf("AWG Watcher: %s repeated API failures (%d): %s", key.Name, keyState.ErrorCount, err))
 			}
 		} else {
 			keyState := detectKeyChanges(key, st.Keys[key.ID], info)

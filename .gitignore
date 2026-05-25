@@ -1,12 +1,15 @@
 bin/
 dist/
-/amnezia-config-watch
+/awg-watcher
 *.ipk
+Packages
+Packages.gz
 config.json
 state.json
 *.log
 .env
 gateway_public_key.pub
 gateway_public_key.pem
+local-data/
 .DS_Store
 .idea/

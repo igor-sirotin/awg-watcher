@@ -1,4 +1,4 @@
-module github.com/sirotin/amnezia-config-watcher
+module github.com/igor-sirotin/awg-watcher
 
 go 1.25.0
 

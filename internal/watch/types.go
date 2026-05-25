@@ -7,9 +7,9 @@ import (
 
 const (
 	DefaultListenAddr           = "127.0.0.1:8097"
-	DefaultConfigPath           = "/opt/etc/amnezia-config-watch/config.json"
-	DefaultStatePath            = "/opt/var/lib/amnezia-config-watch/state.json"
-	DefaultGatewayPublicKeyPath = "/opt/etc/amnezia-config-watch/gateway_public_key.pem"
+	DefaultConfigPath           = "/opt/etc/awg-watcher/config.json"
+	DefaultStatePath            = "/opt/var/lib/awg-watcher/state.json"
+	DefaultGatewayPublicKeyPath = "/opt/etc/awg-watcher/gateway_public_key.pem"
 	DefaultGatewayEndpoint      = "http://gw.amnezia.org:80/"
 	DefaultTelegramEndpoint     = "https://api.telegram.org"
 	defaultPollIntervalHours    = 6

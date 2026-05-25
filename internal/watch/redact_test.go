@@ -6,7 +6,7 @@ func TestRedactValue(t *testing.T) {
 	v := map[string]any{
 		"vpn_key": "vpn://abcdefghijklmnopqrstuvwxyz",
 		"auth_data": map[string]any{
-			"api_key": "supersecretvalue",
+			"api_key": "fixture",
 		},
 		"telegram": map[string]any{
 			"bot_token": "1234567890",
@@ -18,7 +18,7 @@ func TestRedactValue(t *testing.T) {
 		t.Fatal("vpn key was not redacted")
 	}
 	auth := got["auth_data"].(map[string]any)
-	if auth["api_key"] == "supersecretvalue" {
+	if auth["api_key"] == "fixture" {
 		t.Fatal("api key was not redacted")
 	}
 	if got["config"] != "[redacted]" {
