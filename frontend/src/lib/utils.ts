@@ -9,18 +9,18 @@ export function titleStatus(status?: string) {
   return String(status || "unknown").replace(/_/g, " ")
 }
 
-export function statusTone(status?: string) {
+export function statusBadgeClass(status?: string) {
   switch (status) {
     case "ok":
-      return "success"
+      return "border-green-200 bg-green-50 text-green-700 dark:border-green-900/50 dark:bg-green-950 dark:text-green-300"
     case "changed":
     case "missing":
     case "api_error":
-      return "destructive"
+      return "border-red-200 bg-red-50 text-red-700 dark:border-red-900/50 dark:bg-red-950 dark:text-red-300"
     case "baseline":
-      return "warning"
+      return "border-yellow-200 bg-yellow-50 text-yellow-800 dark:border-yellow-900/50 dark:bg-yellow-950 dark:text-yellow-300"
     default:
-      return "warning"
+      return "border-yellow-200 bg-yellow-50 text-yellow-800 dark:border-yellow-900/50 dark:bg-yellow-950 dark:text-yellow-300"
   }
 }
 

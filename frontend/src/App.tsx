@@ -21,7 +21,7 @@ import {
 } from "lucide-react"
 
 import { api, getStatus, hasSetupToken, stripSetupTokenAndReload, setupTokenQuery } from "@/lib/api"
-import { cn, countryFlag, countryLabel, formatDate, formatDateTime, jsonBlock, statusTone, titleStatus } from "@/lib/utils"
+import { cn, countryFlag, countryLabel, formatDate, formatDateTime, jsonBlock, statusBadgeClass, titleStatus } from "@/lib/utils"
 import type { Config, KeyConfig, KeyState, SettingsPatch, SettingsResponse, StatusPayload } from "@/types/api"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
@@ -439,7 +439,7 @@ function DashboardCountryTable({ rows }: { rows: DashboardCountryRow[] }) {
                 <TableCell className="text-muted-foreground">{formatDateTime(row.workerLastUpdated)}</TableCell>
                 <TableCell className="text-muted-foreground">{formatDateTime(row.lastDownloaded)}</TableCell>
                 <TableCell className="text-right">
-                  <Badge className="inline-flex w-auto whitespace-nowrap" variant={statusTone(row.status) as never}>
+                  <Badge className={cn("inline-flex w-auto whitespace-nowrap", statusBadgeClass(row.status))} variant="outline">
                     {titleStatus(row.status)}
                   </Badge>
                 </TableCell>
@@ -618,7 +618,9 @@ function KeyCard({
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               <h3 className="truncate text-base font-semibold tracking-normal">{keyConfig.name || "Key"}</h3>
-              <Badge variant={statusTone(state?.status) as never}>{titleStatus(state?.status)}</Badge>
+              <Badge className={statusBadgeClass(state?.status)} variant="outline">
+                {titleStatus(state?.status)}
+              </Badge>
               {changedCount > 0 ? <Badge variant="destructive">{changedCount} changed</Badge> : null}
             </div>
             {state?.last_error ? <p className="mt-2 text-sm text-destructive">{state.last_error}</p> : null}
@@ -656,7 +658,9 @@ function CountryRows({ countries }: { countries: Array<{ code: string; status?: 
       {countries.map((country) => (
         <div key={country.code} className="contents">
           <span>{countryLabel(country.code)}</span>
-          <Badge variant={statusTone(country.status) as never}>{titleStatus(country.status)}</Badge>
+          <Badge className={statusBadgeClass(country.status)} variant="outline">
+            {titleStatus(country.status)}
+          </Badge>
           <span className="text-muted-foreground">worker {formatDateTime(country.worker_last_updated)}</span>
           <span className="text-muted-foreground">downloaded {formatDateTime(country.last_downloaded)}</span>
         </div>
