@@ -45,3 +45,6 @@ tar -tzf dist/opkg/mipselsf-k3.4/awg-watcher_0.1.0_mipsel-3.4.ipk
 tar -xOf dist/opkg/mipselsf-k3.4/awg-watcher_0.1.0_mipsel-3.4.ipk ./control.tar.gz | tar -tzf -
 tar -xOf dist/opkg/mipselsf-k3.4/awg-watcher_0.1.0_mipsel-3.4.ipk ./data.tar.gz | tar -tzf -
 ```
+
+The archive listing must not contain macOS `._*` AppleDouble files or
+`PaxHeader` entries.

@@ -290,6 +290,9 @@ scp dist/opkg/mipselsf-k3.4/awg-watcher_0.1.0_mipsel-3.4.ipk root@router.example
 ssh root@router.example 'opkg install -V3 /tmp/awg-watcher_0.1.0_mipsel-3.4.ipk'
 ```
 
+The archive listing must not contain `._*` AppleDouble files or `PaxHeader`
+entries; Entware `opkg` cannot extract those.
+
 ## Live Amnezia Account Check
 
 Configure:
