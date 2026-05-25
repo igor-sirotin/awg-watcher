@@ -30,7 +30,8 @@ It contains:
 - `awg-watcher_<version>_mipsel-3.4.ipk`
 - `Packages`
 - `Packages.gz`
-- `index.html`
+- `index.html` in the feed directory
+- `index.html` at the site root for GitHub Pages
 
 The package creates `/opt/etc/awg-watcher` and `/opt/var/lib/awg-watcher`
 during installation, but it does not package local config, state, or gateway key

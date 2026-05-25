@@ -24,7 +24,7 @@ The production Amnezia gateway public key is not committed. To run live gateway 
 ## Build And Test
 
 ```sh
-go test ./...
+make test
 make build
 ```
 
@@ -227,6 +227,8 @@ Publish the hosted OPKG feed:
 
 1. Commit and push the workflow and packaging files to the default branch.
 2. In GitHub, open `Settings` -> `Pages` and set the source to `GitHub Actions`.
+   If Pages is not enabled, deployment fails with `Failed to create deployment
+   (status: 404) ... Ensure GitHub Pages has been enabled`.
 3. Create and push a version tag:
 
 ```sh
