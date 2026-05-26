@@ -293,6 +293,15 @@ ssh root@router.example 'opkg install -V3 /tmp/awg-watcher_0.1.0_mipsel-3.4.ipk'
 The archive listing must not contain `._*` AppleDouble files or `PaxHeader`
 entries; Entware `opkg` cannot extract those.
 
+If an earlier test package polluted the installed file list with macOS metadata,
+repair it once on the router:
+
+```sh
+list=/opt/lib/opkg/info/awg-watcher.list
+grep -Ev '(^|/)\._|(^|/)PaxHeader(/|$)' "$list" > "$list.tmp" && mv "$list.tmp" "$list"
+rm -rf /PaxHeader /._. /._opt /opt/._bin /opt/._etc /opt/bin/._awg-watcher /opt/etc/._init.d /opt/etc/init.d/._S97awg-watcher
+```
+
 ## Live Amnezia Account Check
 
 Configure:
