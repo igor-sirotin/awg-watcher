@@ -30,7 +30,7 @@ export COPY_EXTENDED_ATTRIBUTES_DISABLE=1
 
 control_dir=$tmpdir/control
 data_dir=$tmpdir/data
-tar_flags="--format ustar --no-xattrs --no-mac-metadata --uid 0 --gid 0 --uname root --gname root"
+tar_flags="--format ustar --no-xattrs --uid 0 --gid 0 --uname root --gname root"
 mkdir -p "$control_dir" "$data_dir/opt/bin" "$data_dir/opt/etc/init.d"
 
 install -m 0755 "$binary" "$data_dir/opt/bin/$app"
