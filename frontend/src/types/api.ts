@@ -72,6 +72,11 @@ export type Config = {
     gateway_endpoint?: string
     gateway_public_key_filepath?: string
   }
+  awg_manager?: {
+    base_url?: string
+    login?: string
+    password?: string
+  }
 }
 
 export type SetupRequirements = {
@@ -101,10 +106,36 @@ export type SettingsPatch = {
     gateway_endpoint?: string
     gateway_public_key_filepath?: string
   }
+  awg_manager?: {
+    base_url?: string
+    login?: string
+    password?: string
+  }
   web_password?: string
   gateway_public_keys?: string
   auto_select_issued_countries?: boolean
   keys?: KeyConfig[]
+}
+
+export type AWGManagerTunnel = {
+  id: string
+  name: string
+  type?: string
+  status?: string
+  enabled?: boolean
+  endpoint?: string
+  address?: string
+  interfaceName?: string
+  ndmsName?: string
+  backend?: string
+  backendType?: string
+  mtu?: number
+}
+
+export type AWGConfigPreview = {
+  interface: Record<string, string>
+  peers: Array<Record<string, string>>
+  warnings?: string[]
 }
 
 export type SettingsResponse = {

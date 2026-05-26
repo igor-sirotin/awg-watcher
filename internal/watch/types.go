@@ -11,6 +11,7 @@ const (
 	DefaultStatePath            = "/opt/var/lib/awg-watcher/state.json"
 	DefaultGatewayPublicKeyPath = "/opt/etc/awg-watcher/gateway_public_key.pem"
 	DefaultGatewayEndpoint      = "http://gw.amnezia.org:80/"
+	DefaultAWGManagerBaseURL    = "http://127.0.0.1:2222/api"
 	DefaultTelegramEndpoint     = "https://api.telegram.org"
 	defaultPollIntervalHours    = 6
 )
@@ -19,6 +20,7 @@ type Paths struct {
 	ConfigPath           string
 	StatePath            string
 	GatewayPublicKeyPath string
+	AWGBackupDir         string
 }
 
 func DefaultPaths() Paths {
@@ -26,6 +28,7 @@ func DefaultPaths() Paths {
 		ConfigPath:           DefaultConfigPath,
 		StatePath:            DefaultStatePath,
 		GatewayPublicKeyPath: DefaultGatewayPublicKeyPath,
+		AWGBackupDir:         "/opt/var/lib/awg-watcher/backups",
 	}
 }
 
@@ -35,20 +38,22 @@ func (p *Paths) ApplyWorkdir(workdir string) {
 	}
 	p.ConfigPath = filepath.Join(workdir, "config.json")
 	p.StatePath = filepath.Join(workdir, "state.json")
+	p.AWGBackupDir = filepath.Join(workdir, "backups")
 	if p.GatewayPublicKeyPath == "" || p.GatewayPublicKeyPath == DefaultGatewayPublicKeyPath {
 		p.GatewayPublicKeyPath = filepath.Join(workdir, "gateway_public_key.pem")
 	}
 }
 
 type Config struct {
-	ListenAddr        string         `json:"listen_addr"`
-	VPNKey            string         `json:"vpn_key"`
-	Countries         []string       `json:"countries"`
-	Keys              []KeyConfig    `json:"keys"`
-	PollIntervalHours int            `json:"poll_interval_hours"`
-	Telegram          TelegramConfig `json:"telegram"`
-	Amnezia           AmneziaConfig  `json:"amnezia"`
-	Web               WebConfig      `json:"web"`
+	ListenAddr        string           `json:"listen_addr"`
+	VPNKey            string           `json:"vpn_key"`
+	Countries         []string         `json:"countries"`
+	Keys              []KeyConfig      `json:"keys"`
+	PollIntervalHours int              `json:"poll_interval_hours"`
+	Telegram          TelegramConfig   `json:"telegram"`
+	Amnezia           AmneziaConfig    `json:"amnezia"`
+	AWGManager        AWGManagerConfig `json:"awg_manager"`
+	Web               WebConfig        `json:"web"`
 }
 
 type KeyConfig struct {
@@ -70,8 +75,41 @@ type AmneziaConfig struct {
 	GatewayPublicKeyFilePath string `json:"gateway_public_key_filepath,omitempty"`
 }
 
+type AWGManagerConfig struct {
+	BaseURL  string `json:"base_url"`
+	Login    string `json:"login,omitempty"`
+	Password string `json:"password,omitempty"`
+}
+
 type WebConfig struct {
 	PasswordHash string `json:"password_hash,omitempty"`
+}
+
+type AWGManagerTunnel struct {
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	Type        string `json:"type,omitempty"`
+	Status      string `json:"status,omitempty"`
+	Enabled     bool   `json:"enabled,omitempty"`
+	Endpoint    string `json:"endpoint,omitempty"`
+	Address     string `json:"address,omitempty"`
+	Interface   string `json:"interfaceName,omitempty"`
+	NDMSName    string `json:"ndmsName,omitempty"`
+	Backend     string `json:"backend,omitempty"`
+	BackendType string `json:"backendType,omitempty"`
+	MTU         int    `json:"mtu,omitempty"`
+}
+
+type AWGConfigPreview struct {
+	Interface map[string]string   `json:"interface"`
+	Peers     []map[string]string `json:"peers"`
+	Warnings  []string            `json:"warnings,omitempty"`
+}
+
+type AWGReplaceResult struct {
+	BackupPath string         `json:"backup_path"`
+	Tunnel     map[string]any `json:"tunnel,omitempty"`
+	Warnings   []string       `json:"warnings,omitempty"`
 }
 
 type State struct {

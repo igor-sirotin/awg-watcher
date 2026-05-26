@@ -54,6 +54,8 @@ func shouldRedactKey(key string) bool {
 	return key == "vpn_key" ||
 		key == "api_key" ||
 		key == "bot_token" ||
+		key == "password" ||
+		key == "password_hash" ||
 		key == "gateway_public_key" ||
 		strings.Contains(key, "private_key") ||
 		strings.Contains(key, "preshared_key")

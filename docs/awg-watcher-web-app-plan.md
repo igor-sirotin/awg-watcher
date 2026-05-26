@@ -477,6 +477,16 @@ Add AWG-Manager integration:
 - replace selected tunnel only after explicit confirmation.
 - show dry-run preview before replacement.
 
+Implemented in the current app as a manual workflow:
+
+- Settings store AWG-Manager base URL, login, and password.
+- The AWG Manager page can test the connection and load tunnels.
+- A pasted AmneziaWG `.conf` is previewed locally with key material redacted.
+- Replacement first exports the current tunnel config into the watcher backup directory with `0600` mode.
+- Replacement is sent to AWG-Manager only after explicit confirmation.
+
+Scheduled monitoring remains read-only and does not call AWG-Manager.
+
 ### Phase 4: Fully Automated Replacement
 
 Enable automatic AWG replacement only after repeated successful manual runs and with clear rollback/backup behavior.

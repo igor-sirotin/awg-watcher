@@ -8,6 +8,7 @@ import {
   Download,
   Eye,
   FileKey2,
+  FileText,
   KeyRound,
   LayoutDashboard,
   Loader2,
@@ -23,7 +24,7 @@ import {
 import { api, getStatus, hasSetupToken, stripSetupTokenAndReload, setupTokenQuery } from "@/lib/api"
 import { countryFlag, countryLabel, formatDate, formatDateTime, jsonBlock, statusBadgeVariant, titleStatus } from "@/lib/app-utils"
 import { cn } from "@/lib/utils"
-import type { Config, KeyConfig, KeyState, SettingsPatch, SettingsResponse, StatusPayload } from "@/types/api"
+import type { AWGConfigPreview, AWGManagerTunnel, Config, KeyConfig, KeyState, SettingsPatch, SettingsResponse, StatusPayload } from "@/types/api"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { Button, buttonVariants } from "@/components/ui/button"
@@ -87,6 +88,7 @@ export default function App() {
         poll_interval_hours: patch.poll_interval_hours ?? cfg.poll_interval_hours ?? 6,
         telegram: patch.telegram || {},
         amnezia: patch.amnezia || {},
+        awg_manager: patch.awg_manager || {},
         web_password: patch.web_password || "",
         gateway_public_keys: patch.gateway_public_keys || "",
         auto_select_issued_countries: patch.auto_select_issued_countries || false,
@@ -149,7 +151,7 @@ export default function App() {
     },
     awg: {
       title: "AWG Manager",
-      description: "Reserved for future router tunnel integration.",
+      description: "Manually replace a managed tunnel after preview and backup.",
     },
     tools: {
       title: "Tools",
@@ -208,7 +210,7 @@ export default function App() {
               }}
             />
           ) : null}
-          {view === "awg" ? <AwgPage /> : null}
+          {view === "awg" ? <AwgPage model={model} output={output} setOutput={setOutput} /> : null}
           {view === "tools" ? <ToolsPage output={output} setOutput={setOutput} /> : null}
         </div>
       </main>
@@ -469,14 +471,215 @@ function KeysPage({
   )
 }
 
-function AwgPage() {
+function AwgPage({ model, output, setOutput }: { model: StatusPayload | null; output: string; setOutput: (output: string) => void }) {
+  const [tunnels, setTunnels] = useState<AWGManagerTunnel[]>([])
+  const [selectedID, setSelectedID] = useState("")
+  const [configName, setConfigName] = useState("")
+  const [content, setContent] = useState("")
+  const [preview, setPreview] = useState<AWGConfigPreview | null>(null)
+  const [busy, setBusy] = useState(false)
+  const selectedTunnel = tunnels.find((tunnel) => tunnel.id === selectedID)
+
+  const loadTunnels = useCallback(async () => {
+    setBusy(true)
+    try {
+      const data = await api<{ tunnels: AWGManagerTunnel[] }>("/api/awg/tunnels")
+      setTunnels(data.tunnels || [])
+      setSelectedID((current) => current || data.tunnels?.[0]?.id || "")
+      setOutput(jsonBlock(data))
+    } catch (err) {
+      setOutput(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }, [setOutput])
+
+  useEffect(() => {
+    if (model?.config?.awg_manager?.base_url) void loadTunnels()
+  }, [loadTunnels, model?.config?.awg_manager?.base_url])
+
+  async function testConnection() {
+    setBusy(true)
+    try {
+      setOutput(jsonBlock(await api<unknown>("/api/awg/test", { method: "POST", body: "{}" })))
+    } catch (err) {
+      setOutput(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function previewConfig() {
+    setBusy(true)
+    try {
+      const data = await api<{ preview: AWGConfigPreview }>("/api/awg/preview", { method: "POST", body: JSON.stringify({ content }) })
+      setPreview(data.preview)
+      setOutput(jsonBlock(data))
+    } catch (err) {
+      const data = (err as Error & { data?: { preview?: AWGConfigPreview } }).data
+      if (data?.preview) setPreview(data.preview)
+      setOutput(jsonBlock(data || (err instanceof Error ? err.message : String(err))))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function replaceTunnel() {
+    if (!selectedID) {
+      setOutput("Select an AWG Manager tunnel first.")
+      return
+    }
+    if (!window.confirm("Replace the selected AWG Manager tunnel? A backup export will be saved first.")) return
+    setBusy(true)
+    try {
+      const data = await api<unknown>("/api/awg/replace", {
+        method: "POST",
+        body: JSON.stringify({ id: selectedID, content, name: configName, confirm: true }),
+      })
+      setOutput(jsonBlock(data))
+      setPreview(null)
+      await loadTunnels()
+    } catch (err) {
+      setOutput(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBusy(false)
+    }
+  }
+
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Not configured yet</CardTitle>
-        <CardDescription>This release only detects Amnezia metadata changes and sends notifications.</CardDescription>
-      </CardHeader>
-    </Card>
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_24rem]">
+      <div className="grid gap-4">
+        <Card>
+          <CardHeader className="flex-col gap-3 space-y-0 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle>Connection</CardTitle>
+              <CardDescription>{model?.config?.awg_manager?.base_url || "AWG Manager URL is not configured."}</CardDescription>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={testConnection} disabled={busy}>
+                {busy ? <Loader2 className="animate-spin" /> : <Activity />}
+                Test
+              </Button>
+              <Button variant="secondary" onClick={loadTunnels} disabled={busy}>
+                {busy ? <Loader2 className="animate-spin" /> : <RefreshCw />}
+                Load tunnels
+              </Button>
+            </div>
+          </CardHeader>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Tunnels</CardTitle>
+            <CardDescription>Select the managed tunnel that should receive the new `.conf`.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {tunnels.length ? (
+              <div className="grid gap-2">
+                {tunnels.map((tunnel) => (
+                  <label key={tunnel.id} className="grid cursor-pointer gap-3 rounded-md bg-muted p-3 text-sm sm:grid-cols-[1rem_1fr_auto] sm:items-center">
+                    <input type="radio" className="size-4" checked={selectedID === tunnel.id} onChange={() => setSelectedID(tunnel.id)} />
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium">{tunnel.name || tunnel.id}</span>
+                      <span className="block truncate text-muted-foreground">
+                        {[tunnel.interfaceName, tunnel.ndmsName, tunnel.endpoint, tunnel.address].filter(Boolean).join(" · ") || tunnel.id}
+                      </span>
+                    </span>
+                    <span className="flex flex-wrap gap-2 sm:justify-end">
+                      <Badge variant={tunnel.status === "running" ? "default" : "secondary"}>{tunnel.status || "unknown"}</Badge>
+                      <Badge variant="secondary">{tunnel.backendType || tunnel.type || "awg"}</Badge>
+                    </span>
+                  </label>
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-lg bg-muted p-4 text-sm text-muted-foreground">No tunnels loaded yet.</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Replacement config</CardTitle>
+            <CardDescription>Preview redacted fields before replacing the selected tunnel.</CardDescription>
+          </CardHeader>
+          <CardContent className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="awg_name">Replacement name</Label>
+              <Input id="awg_name" value={configName} onChange={(event) => setConfigName(event.target.value)} placeholder={selectedTunnel?.name || "Leave unchanged"} />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="awg_conf">AmneziaWG `.conf`</Label>
+              <Textarea id="awg_conf" className="min-h-64 font-mono text-xs" spellCheck={false} value={content} onChange={(event) => setContent(event.target.value)} placeholder="[Interface]" />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" onClick={previewConfig} disabled={busy || !content.trim()}>
+                <FileText />
+                Preview
+              </Button>
+              <Button onClick={replaceTunnel} disabled={busy || !selectedID || !content.trim()}>
+                {busy ? <Loader2 className="animate-spin" /> : <Wrench />}
+                Backup and replace
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid content-start gap-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Preview</CardTitle>
+            <CardDescription>Secrets are shortened before display.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {preview ? <ConfigPreview preview={preview} /> : <p className="rounded-lg bg-muted p-3 text-sm text-muted-foreground">Paste a config and preview it.</p>}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Output</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <pre className="max-h-[24rem] overflow-auto rounded-lg bg-muted p-3 text-xs text-muted-foreground">{output}</pre>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  )
+}
+
+function ConfigPreview({ preview }: { preview: AWGConfigPreview }) {
+  return (
+    <div className="grid gap-4 text-sm">
+      <PreviewSection title="Interface" values={preview.interface} />
+      {preview.peers.map((peer, index) => (
+        <PreviewSection key={index} title={`Peer ${index + 1}`} values={peer} />
+      ))}
+      {preview.warnings?.length ? (
+        <Alert variant="destructive">
+          <AlertTitle>Warnings</AlertTitle>
+          <AlertDescription>{preview.warnings.join("; ")}</AlertDescription>
+        </Alert>
+      ) : null}
+    </div>
+  )
+}
+
+function PreviewSection({ title, values }: { title: string; values: Record<string, string> }) {
+  const rows = Object.entries(values).sort(([a], [b]) => a.localeCompare(b))
+  return (
+    <section className="grid gap-2">
+      <h3 className="text-sm font-semibold tracking-normal">{title}</h3>
+      <div className="grid gap-1 rounded-lg bg-muted p-3">
+        {rows.map(([key, value]) => (
+          <div key={key} className="grid gap-1 sm:grid-cols-[8rem_1fr]">
+            <span className="text-muted-foreground">{key}</span>
+            <span className="break-all font-mono text-xs">{value}</span>
+          </div>
+        ))}
+      </div>
+    </section>
   )
 }
 
@@ -707,6 +910,9 @@ function SettingsDialog({
   const [gatewayKeys, setGatewayKeys] = useState("")
   const [botToken, setBotToken] = useState("")
   const [chatID, setChatID] = useState("")
+  const [awgBaseURL, setAwgBaseURL] = useState("")
+  const [awgLogin, setAwgLogin] = useState("")
+  const [awgPassword, setAwgPassword] = useState("")
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
@@ -718,7 +924,10 @@ function SettingsDialog({
     setGatewayKeys("")
     setBotToken("")
     setChatID("")
-  }, [cfg.amnezia?.gateway_endpoint, cfg.amnezia?.gateway_public_key_filepath, cfg.poll_interval_hours, open])
+    setAwgBaseURL(cfg.awg_manager?.base_url || "")
+    setAwgLogin(cfg.awg_manager?.login || "")
+    setAwgPassword("")
+  }, [cfg.amnezia?.gateway_endpoint, cfg.amnezia?.gateway_public_key_filepath, cfg.awg_manager?.base_url, cfg.awg_manager?.login, cfg.poll_interval_hours, open])
 
   async function submit(event: React.FormEvent) {
     event.preventDefault()
@@ -732,6 +941,11 @@ function SettingsDialog({
         amnezia: {
           gateway_endpoint: gatewayEndpoint,
           gateway_public_key_filepath: gatewayPath,
+        },
+        awg_manager: {
+          base_url: awgBaseURL,
+          login: awgLogin,
+          password: awgPassword,
         },
       })
       onOpenChange(false)
@@ -791,6 +1005,26 @@ function SettingsDialog({
             <div className="grid gap-2">
               <Label htmlFor="chat_id">Telegram chat ID</Label>
               <Input id="chat_id" value={chatID} onChange={(event) => setChatID(event.target.value)} placeholder="Leave unchanged" />
+            </div>
+          </div>
+          <div className="grid gap-3 rounded-lg bg-muted p-3">
+            <div>
+              <div className="text-sm font-medium">AWG Manager</div>
+              <div className="text-sm text-muted-foreground">Used only for manual tunnel replacement.</div>
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="awg_base_url">Base URL</Label>
+              <Input id="awg_base_url" value={awgBaseURL} onChange={(event) => setAwgBaseURL(event.target.value)} placeholder="http://127.0.0.1:2222/api" />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor="awg_login">Login</Label>
+                <Input id="awg_login" value={awgLogin} onChange={(event) => setAwgLogin(event.target.value)} placeholder="admin" />
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="awg_password">Password</Label>
+                <Input id="awg_password" type="password" autoComplete="off" value={awgPassword} onChange={(event) => setAwgPassword(event.target.value)} placeholder="Leave unchanged" />
+              </div>
             </div>
           </div>
           <DialogFooter>

@@ -34,7 +34,8 @@ func DefaultConfig() *Config {
 		Amnezia: AmneziaConfig{
 			GatewayEndpoint: DefaultGatewayEndpoint,
 		},
-		Telegram: TelegramConfig{Endpoint: DefaultTelegramEndpoint},
+		AWGManager: AWGManagerConfig{BaseURL: DefaultAWGManagerBaseURL},
+		Telegram:   TelegramConfig{Endpoint: DefaultTelegramEndpoint},
 	}
 	return cfg
 }
@@ -117,6 +118,9 @@ func applyDefaults(cfg *Config) {
 	}
 	if cfg.Telegram.Endpoint == "" {
 		cfg.Telegram.Endpoint = DefaultTelegramEndpoint
+	}
+	if cfg.AWGManager.BaseURL == "" {
+		cfg.AWGManager.BaseURL = DefaultAWGManagerBaseURL
 	}
 	migrateSingleKeyConfig(cfg)
 	for i := range cfg.Keys {

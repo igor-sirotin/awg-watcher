@@ -118,6 +118,10 @@ func (a *App) routes(mux *http.ServeMux) {
 	mux.HandleFunc("/api/decode", a.handleDecode)
 	mux.HandleFunc("/api/check", a.handleCheck)
 	mux.HandleFunc("/api/telegram/test", a.handleTelegramTest)
+	mux.HandleFunc("/api/awg/test", a.handleAWGTest)
+	mux.HandleFunc("/api/awg/tunnels", a.handleAWGTunnels)
+	mux.HandleFunc("/api/awg/preview", a.handleAWGPreview)
+	mux.HandleFunc("/api/awg/replace", a.handleAWGReplace)
 	mux.HandleFunc("/api/diagnostics", a.handleDiagnostics)
 }
 
@@ -148,16 +152,17 @@ func (a *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		ListenAddr        string         `json:"listen_addr"`
-		VPNKey            string         `json:"vpn_key"`
-		Countries         []string       `json:"countries"`
-		Keys              []KeyConfig    `json:"keys"`
-		PollIntervalHours int            `json:"poll_interval_hours"`
-		Telegram          TelegramConfig `json:"telegram"`
-		Amnezia           AmneziaConfig  `json:"amnezia"`
-		WebPassword       string         `json:"web_password"`
-		GatewayPublicKeys string         `json:"gateway_public_keys"`
-		AutoSelectIssued  bool           `json:"auto_select_issued_countries"`
+		ListenAddr        string           `json:"listen_addr"`
+		VPNKey            string           `json:"vpn_key"`
+		Countries         []string         `json:"countries"`
+		Keys              []KeyConfig      `json:"keys"`
+		PollIntervalHours int              `json:"poll_interval_hours"`
+		Telegram          TelegramConfig   `json:"telegram"`
+		Amnezia           AmneziaConfig    `json:"amnezia"`
+		AWGManager        AWGManagerConfig `json:"awg_manager"`
+		WebPassword       string           `json:"web_password"`
+		GatewayPublicKeys string           `json:"gateway_public_keys"`
+		AutoSelectIssued  bool             `json:"auto_select_issued_countries"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeError(w, http.StatusBadRequest, err.Error())
@@ -191,6 +196,9 @@ func (a *App) handleSettings(w http.ResponseWriter, r *http.Request) {
 	cfg.Amnezia.GatewayEndpoint = mergeSecret(cfg.Amnezia.GatewayEndpoint, req.Amnezia.GatewayEndpoint)
 	cfg.Amnezia.GatewayPublicKeyFilePath = mergeSecret(cfg.Amnezia.GatewayPublicKeyFilePath, req.Amnezia.GatewayPublicKeyFilePath)
 	cfg.Amnezia.GatewayPublicKey = mergeSecret(cfg.Amnezia.GatewayPublicKey, req.Amnezia.GatewayPublicKey)
+	cfg.AWGManager.BaseURL = mergeSecret(cfg.AWGManager.BaseURL, req.AWGManager.BaseURL)
+	cfg.AWGManager.Login = mergeSecret(cfg.AWGManager.Login, req.AWGManager.Login)
+	cfg.AWGManager.Password = mergeSecret(cfg.AWGManager.Password, req.AWGManager.Password)
 	if strings.TrimSpace(req.GatewayPublicKeys) != "" {
 		path := cfg.Amnezia.GatewayPublicKeyFilePath
 		if path == "" {
@@ -335,6 +343,87 @@ func (a *App) handleTelegramTest(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, map[string]any{"ok": true})
+}
+
+func (a *App) handleAWGTest(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
+	defer cancel()
+	client := a.awgClient()
+	health, err := client.Health(ctx)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	writeJSON(w, map[string]any{"ok": true, "health": health})
+}
+
+func (a *App) handleAWGTunnels(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
+	defer cancel()
+	client := a.awgClient()
+	tunnels, err := client.ListTunnels(ctx)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	writeJSON(w, map[string]any{"tunnels": tunnels})
+}
+
+func (a *App) handleAWGPreview(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var req struct {
+		Content string `json:"content"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	preview, err := PreviewAWGConfig(req.Content)
+	if err != nil {
+		writeJSONStatus(w, http.StatusBadRequest, map[string]any{"error": err.Error(), "preview": preview})
+		return
+	}
+	writeJSON(w, map[string]any{"preview": preview})
+}
+
+func (a *App) handleAWGReplace(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+	var req struct {
+		ID      string `json:"id"`
+		Content string `json:"content"`
+		Name    string `json:"name"`
+		Confirm bool   `json:"confirm"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	if !req.Confirm {
+		writeError(w, http.StatusBadRequest, "explicit confirmation required")
+		return
+	}
+	ctx, cancel := context.WithTimeout(r.Context(), 45*time.Second)
+	defer cancel()
+	result, err := a.ReplaceAWGTunnel(ctx, req.ID, req.Content, req.Name)
+	if err != nil {
+		writeError(w, http.StatusBadGateway, err.Error())
+		return
+	}
+	writeJSON(w, result)
 }
 
 func (a *App) handleDiagnostics(w http.ResponseWriter, r *http.Request) {

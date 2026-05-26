@@ -1,6 +1,6 @@
 # AWG Watcher
 
-Local Keenetic/Entware web app that watches Amnezia Premium country config metadata and sends Telegram notifications when it changes. V1 is read-only: it calls only `v1/account_info` and does not modify AWG-Manager or router tunnel configs.
+Local Keenetic/Entware web app that watches Amnezia Premium country config metadata and sends Telegram notifications when it changes. Monitoring remains read-only; AWG-Manager replacement is available only as an explicit manual workflow with preview and backup.
 
 ## Current Status
 
@@ -16,6 +16,7 @@ Implemented:
 - read-only Amnezia `v1/account_info` client
 - country metadata diffing for `worker_last_updated` and `last_downloaded`
 - Telegram notifications and test notification
+- manual AWG-Manager tunnel listing, redacted config preview, export backup, and replace
 - redacted diagnostics export
 - OPKG package/feed scaffold for Keenetic/Entware
 
@@ -75,9 +76,9 @@ The UI uses a full-screen sidebar layout:
 
 - `Dashboard`: overall status, schedule, key summary, and recent key status.
 - `Keys`: add AmneziaVPN keys, run checks, and choose countries from each key's account response.
-- `AWG Manager`: placeholder only; no router tunnel changes are made in V1.
+- `AWG Manager`: connect to AWG-Manager, load tunnels, preview a pasted `.conf`, then backup and replace a selected tunnel.
 - `Tools`: Telegram test and redacted diagnostics download.
-- `Settings`: popup for password, gateway public keys, gateway endpoint, poll interval, and Telegram.
+- `Settings`: popup for password, gateway public keys, gateway endpoint, poll interval, Telegram, and AWG-Manager connection settings.
 
 For a new key, save the key first. The UI runs a check, loads available countries, then lets you select which countries to watch.
 
@@ -115,6 +116,36 @@ Useful local flags:
 inside that directory. It is the easiest way to run locally without writing to `/opt`.
 
 `decode` prints redacted JSON by default. Use `--show-secrets` only on a trusted machine.
+
+## AWG-Manager Integration
+
+Configure AWG-Manager in Settings:
+
+- Base URL, for example `http://127.0.0.1:2222/api`.
+- Keenetic/AWG-Manager login.
+- Password.
+
+The AWG Manager page supports:
+
+- connection test through AWG-Manager health.
+- tunnel listing through `GET /api/tunnels/list`.
+- local preview of a pasted AmneziaWG `.conf` with private keys shortened.
+- backup of the existing tunnel through `GET /api/tunnels/export?id=...`.
+- explicit replacement through `POST /api/tunnels/replace?id=...`.
+
+Backups are written with mode `0600` under:
+
+```text
+<state-dir>/backups
+```
+
+With default Entware paths this is:
+
+```text
+/opt/var/lib/awg-watcher/backups
+```
+
+Scheduled checks do not call AWG-Manager and never replace router tunnel configs.
 
 ## Gateway Public Key File
 
@@ -317,4 +348,4 @@ The live client sends one encrypted POST to:
 <gateway_endpoint>/v1/account_info
 ```
 
-It does not call `v1/config`, `v1/native_config`, revoke endpoints, or AWG-Manager endpoints.
+Scheduled monitoring does not call `v1/config`, `v1/native_config`, revoke endpoints, or AWG-Manager endpoints. The AWG Manager page calls AWG-Manager only when you test the connection, load tunnels, or explicitly replace a tunnel.
