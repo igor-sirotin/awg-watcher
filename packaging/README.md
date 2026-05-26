@@ -48,3 +48,7 @@ tar -xOf dist/opkg/mipselsf-k3.4/awg-watcher_0.1.0_mipsel-3.4.ipk ./data.tar.gz 
 
 The archive listing must not contain macOS `._*` AppleDouble files or
 `PaxHeader` entries.
+
+The package `postinst` also removes those stale metadata paths from
+`/opt/lib/opkg/info/awg-watcher.list` when upgrading from an early broken local
+test package.

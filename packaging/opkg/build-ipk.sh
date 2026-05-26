@@ -55,6 +55,12 @@ set -e
 mkdir -p /opt/etc/$app /opt/var/lib/$app
 chmod 700 /opt/etc/$app /opt/var/lib/$app
 chmod 755 /opt/bin/$app /opt/etc/init.d/S97$app
+list_file=/opt/lib/opkg/info/$app.list
+if [ -f "\$list_file" ] && grep -Eq '(^|/)\\._|(^|/)PaxHeader(/|$)' "\$list_file"; then
+	tmp_file=\${list_file}.tmp
+	grep -Ev '(^|/)\\._|(^|/)PaxHeader(/|$)' "\$list_file" > "\$tmp_file"
+	mv "\$tmp_file" "\$list_file"
+fi
 exit 0
 EOF
 
