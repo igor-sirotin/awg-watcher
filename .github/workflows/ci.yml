@@ -49,6 +49,57 @@ jobs:
       - name: Build backend
         run: make backend-build
 
+  opkg-build:
+    name: OPKG build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build OPKG feed
+        run: make opkg-feed VERSION=ci
+
+      - name: Validate OPKG package
+        shell: bash
+        run: |
+          set -euo pipefail
+          feed_dir=dist/opkg/mipselsf-k3.4
+          pkg="$feed_dir/awg-watcher_ci_mipsel-3.4.ipk"
+
+          test -f "$pkg"
+          test -f "$feed_dir/Packages"
+          test -f "$feed_dir/Packages.gz"
+          test -f "$feed_dir/index.html"
+          test -f dist/index.html
+
+          tar -tzf "$pkg" | tee /tmp/ipk-files
+          diff -u <(printf './debian-binary\n./control.tar.gz\n./data.tar.gz\n') /tmp/ipk-files
+
+          tar -xOf "$pkg" ./control.tar.gz | tar -tzf - | tee /tmp/control-files
+          grep -qx './control' /tmp/control-files
+          grep -qx './postinst' /tmp/control-files
+          grep -qx './prerm' /tmp/control-files
+
+          tar -xOf "$pkg" ./data.tar.gz | tar -tzf - | tee /tmp/data-files
+          grep -qx './opt/bin/awg-watcher' /tmp/data-files
+          grep -qx './opt/etc/init.d/S97awg-watcher' /tmp/data-files
+
+          ! grep -E '(^|/)\._|PaxHeader' /tmp/ipk-files /tmp/control-files /tmp/data-files
+
+          grep -q '^Package: awg-watcher$' "$feed_dir/Packages"
+          grep -q '^Version: ci$' "$feed_dir/Packages"
+          grep -q '^Architecture: mipsel-3.4$' "$feed_dir/Packages"
+          grep -q '^Filename: awg-watcher_ci_mipsel-3.4.ipk$' "$feed_dir/Packages"
+
   frontend-lint:
     name: Frontend lint
     runs-on: ubuntu-latest
