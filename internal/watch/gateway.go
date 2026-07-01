@@ -24,6 +24,12 @@ import (
 
 const gatewayHTTPErrorBodyLimit = 512
 
+// amneziaAppVersion is the client version reported to the Amnezia gateway. The
+// gateway enforces a minimum client version and rejects unrecognized values
+// with HTTP 501 "client version update is required", so this must track a
+// current official AmneziaVPN release.
+const amneziaAppVersion = "4.8.19"
+
 type AccountClient struct {
 	Config      *Config
 	FixturePath string
@@ -168,14 +174,14 @@ func buildGatewayRequest(auth *PremiumAuth, pub *rsa.PublicKey) ([]byte, []byte,
 	}
 	apiPayload, err := json.Marshal(map[string]any{
 		"os_version":        runtime.GOOS,
-		"app_version":       "awg-watcher",
+		"app_version":       amneziaAppVersion,
 		"app_language":      "en",
 		"installation_uuid": "awg-watcher",
 		"user_country_code": auth.UserCountryCode,
 		"service_type":      auth.ServiceType,
 		"service_protocol":  auth.ServiceProtocol,
 		"auth_data":         auth.AuthData,
-		"cli_version":       "awg-watcher",
+		"cli_version":       amneziaAppVersion,
 	})
 	if err != nil {
 		return nil, nil, nil, err
